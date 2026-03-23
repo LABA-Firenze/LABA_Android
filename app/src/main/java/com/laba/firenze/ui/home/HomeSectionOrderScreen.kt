@@ -1,21 +1,25 @@
 package com.laba.firenze.ui.home
 
-import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.filled.DragHandle
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
+import org.burnoutcrew.reorderable.ReorderableItem
+import org.burnoutcrew.reorderable.detectReorderAfterLongPress
+import org.burnoutcrew.reorderable.rememberReorderableLazyListState
+import org.burnoutcrew.reorderable.reorderable
 
 /** Nomi sezioni per l'ordine Home (identico a iOS home.sectionOrder). */
 private val SECTION_LABELS = mapOf(
@@ -27,15 +31,34 @@ private val SECTION_LABELS = mapOf(
     "quickActions" to "Per te e Servizi"
 )
 
-/** Schermata ordine sezioni Home (identico a iOS personalizzazione). */
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
+/** Schermata ordine sezioni Home con drag & drop (identico a iOS personalizzazione). */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeSectionOrderScreen(
     navController: NavController,
     viewModel: HomeViewModel = hiltViewModel()
 ) {
     val order by viewModel.sectionOrder.collectAsStateWithLifecycle()
-    
+    var currentOrder by remember(order) { mutableStateOf(order) }
+
+    LaunchedEffect(order) {
+        currentOrder = order
+    }
+
+    val reorderableState = rememberReorderableLazyListState(
+        onMove = { from, to ->
+            // Indici offset di 1 per via dell'item header "Trascina per riordinare..."
+            val fromIdx = (from.index - 1).coerceIn(0, currentOrder.lastIndex)
+            val toIdx = (to.index - 1).coerceIn(0, currentOrder.lastIndex)
+            if (fromIdx != toIdx) {
+                currentOrder = currentOrder.toMutableList().apply {
+                    add(toIdx, removeAt(fromIdx))
+                }
+                viewModel.saveSectionOrder(currentOrder)
+            }
+        }
+    )
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -49,9 +72,12 @@ fun HomeSectionOrderScreen(
         }
     ) { paddingValues ->
         LazyColumn(
+            state = reorderableState.listState,
             modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingValues),
+                .padding(paddingValues)
+                .reorderable(reorderableState)
+                .detectReorderAfterLongPress(reorderableState),
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
@@ -63,52 +89,38 @@ fun HomeSectionOrderScreen(
                     modifier = Modifier.padding(bottom = 8.dp)
                 )
             }
-            itemsIndexed(order) { index, sectionId ->
-                val label = SECTION_LABELS[sectionId] ?: sectionId
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
-                ) {
-                    Row(
+            items(currentOrder, key = { it }) { sectionId ->
+                ReorderableItem(reorderableState, key = sectionId) { isDragging ->
+                    val elevation by animateDpAsState(
+                        if (isDragging) 8.dp else 0.dp,
+                        label = "elevation"
+                    )
+                    val label = SECTION_LABELS[sectionId] ?: sectionId
+                    Card(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                            .shadow(elevation),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                        )
                     ) {
-                        Icon(
-                            Icons.Default.DragHandle,
-                            contentDescription = "Trascina",
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Text(
-                            text = label,
-                            style = MaterialTheme.typography.bodyLarge,
-                            modifier = Modifier.weight(1f)
-                        )
-                        IconButton(
-                            onClick = {
-                                if (index > 0) {
-                                    val newOrder = order.toMutableList()
-                                    newOrder.removeAt(index)
-                                    newOrder.add(index - 1, sectionId)
-                                    viewModel.saveSectionOrder(newOrder)
-                                }
-                            }
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Icon(Icons.Default.KeyboardArrowUp, contentDescription = "Sposta su")
-                        }
-                        IconButton(
-                            onClick = {
-                                if (index < order.size - 1) {
-                                    val newOrder = order.toMutableList()
-                                    newOrder.removeAt(index)
-                                    newOrder.add(index + 1, sectionId)
-                                    viewModel.saveSectionOrder(newOrder)
-                                }
-                            }
-                        ) {
-                            Icon(Icons.Default.KeyboardArrowDown, contentDescription = "Sposta giù")
+                            Icon(
+                                Icons.Default.DragHandle,
+                                contentDescription = "Trascina",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Text(
+                                text = label,
+                                style = MaterialTheme.typography.bodyLarge,
+                                modifier = Modifier.weight(1f)
+                            )
                         }
                     }
                 }

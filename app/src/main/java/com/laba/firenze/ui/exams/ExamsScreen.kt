@@ -12,6 +12,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Assignment
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -62,9 +63,9 @@ fun ExamsScreen(
     val years = if (isBiennio) listOf(1, 2) else listOf(1, 2, 3)
     val keyboardController = LocalSoftwareKeyboardController.current
     
-    // Debounce per la ricerca (identico a iOS)
+    // Debounce per la ricerca (300ms come iOS)
     LaunchedEffect(queryRaw) {
-        delay(250)
+        delay(300)
         query = queryRaw.trim()
     }
     
@@ -215,7 +216,15 @@ fun ExamsScreen(
                 contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 140.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                // Esami regolari
+                // Esami regolari (come iOS 6.3.1)
+                if (regularExams.isNotEmpty()) {
+                    item {
+                        SectionHeader(
+                            title = "Regolari",
+                            icon = Icons.AutoMirrored.Filled.Assignment
+                        )
+                    }
+                }
                 items(regularExams) { exam ->
                     ExamCard(
                         exam = exam,
@@ -230,7 +239,7 @@ fun ExamsScreen(
                 if (workshops.isNotEmpty()) {
                     item {
                         SectionHeader(
-                            title = "Workshop / Seminari / Tirocinio",
+                            title = "Attività a scelta",
                             icon = Icons.Filled.Workspaces
                         )
                     }

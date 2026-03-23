@@ -4,6 +4,8 @@ import android.content.res.Configuration
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.*
@@ -20,13 +22,16 @@ import com.laba.firenze.ui.common.LoginScreen
 import com.laba.firenze.ui.common.RefreshTokenScreen
 import com.laba.firenze.ui.common.NotificationPermissionHelper
 import com.laba.firenze.ui.theme.LABAFirenzeTheme
+import com.laba.firenze.data.local.AppearancePreferences
 import dagger.hilt.android.AndroidEntryPoint
+import javax.inject.Inject
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
-    
+
+    @Inject lateinit var appearancePreferences: AppearancePreferences
     private val mainViewModel: MainActivityViewModel by viewModels()
-    
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
@@ -41,8 +46,17 @@ class MainActivity : ComponentActivity() {
         window.navigationBarColor = Color.Transparent.toArgb()
         
         handleDeepLink(intent)
+        handleDocumentFromNotification(intent)
         handleNotificationTap(intent)
-        
+
+        // Incrementa heroPhraseCycle e check auth quando l'app torna in foreground (identico a iOS onChange scenePhase .active)
+        lifecycle.addObserver(LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                appearancePreferences.incrementHeroPhraseCycle()
+                mainViewModel.onAppResumed()
+            }
+        })
+
         setContent {
             LABAAuthWrapper(viewModel = mainViewModel)
         }
@@ -52,6 +66,7 @@ class MainActivity : ComponentActivity() {
         super.onNewIntent(intent)
         setIntent(intent)
         handleDeepLink(intent)
+        handleDocumentFromNotification(intent)
         handleNotificationTap(intent)
     }
     
@@ -63,9 +78,20 @@ class MainActivity : ComponentActivity() {
         mainViewModel.setPendingDeepLink(lessonId)
     }
     
+    /** Push con tipo/oid (documento): ensureTabInBar + apri doc (identico a iOS 1.3). */
+    private fun handleDocumentFromNotification(intent: android.content.Intent?) {
+        val tipo = intent?.getIntExtra("document_tipo", -1) ?: -1
+        val oid = intent?.getStringExtra("document_oid")
+        if (tipo >= 0 && !oid.isNullOrBlank()) {
+            mainViewModel.setPendingDocumentDeepLink(tipo, oid)
+        }
+    }
+
     /** Tap su notifica FCM: apri app e vai al dettaglio della notifica. */
     private fun handleNotificationTap(intent: android.content.Intent?) {
         if (intent?.getBooleanExtra("notification_tap", false) != true) return
+        // Se la notifica apre un documento, non mostrare il dettaglio generico
+        if (intent.hasExtra("document_tipo") && intent.hasExtra("document_oid")) return
         val title = intent.getStringExtra("notification_title") ?: "LABA"
         val body = intent.getStringExtra("notification_body") ?: ""
         mainViewModel.setPendingNotificationTap(title, body)

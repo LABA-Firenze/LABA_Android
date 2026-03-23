@@ -98,14 +98,14 @@ class HomeViewModel @Inject constructor(
         
         // Converti in LessonUi
         return userLessons.map { event ->
-             // ...
-             // (Using existing logic)
-             LessonUi(
+            val isNow = event.start <= now && now < event.end
+            LessonUi(
                 title = event.corso,
                 time = formatTimeRange(event.start, event.end),
                 room = event.aula,
-                teacher = if (event.gruppo != null) "${event.docente ?: ""} (Gr. ${event.gruppo})" else event.docente, // Show group in teacher field if exists
-                date = formatDate(event.start)
+                teacher = if (event.gruppo != null) "${event.docente ?: ""} (Gr. ${event.gruppo})" else event.docente,
+                date = formatDate(event.start),
+                isNow = isNow
             )
         }
     }
@@ -146,6 +146,27 @@ class HomeViewModel @Inject constructor(
         hasLoadedData = true
     }
     
+    /**
+     * Forza un refresh completo (per pull-to-refresh). Identico a iOS performRefresh.
+     */
+    fun performRefresh() {
+        viewModelScope.launch {
+            sessionRepository.loadAll()
+            lessonCalendarRepository.syncLessons(
+                sessionRepository.getUserProfileFlow().value?.pianoStudi,
+                sessionRepository.getUserProfileFlow().value?.currentYear?.toIntOrNull(),
+                force = true
+            )
+            loadData()
+            achievementManager.updateAchievements(
+                sessionRepository.allExams.value,
+                sessionRepository.seminars.value,
+                sessionRepository.getUserProfile()
+            )
+            achievementManager.trackSectionVisit("home")
+        }
+    }
+
     fun refreshOnAppear() {
         viewModelScope.launch {
             // Controlla se i dati sono già stati caricati guardando se il profilo esiste
@@ -325,7 +346,28 @@ class HomeViewModel @Inject constructor(
             studyYear = studyYear
         )
     }
-    
+
+    /** Frasi cicliche per laureati (identico a iOS heroPhrasesGraduate). */
+    private val heroPhrasesGraduate = listOf(
+        "E mo'?",
+        "Ok. E ora che si fa?",
+        "Respira. Poi vediamo.",
+        "Modalità mondo reale.",
+        "Fine tutorial.",
+        "Adesso viene il bello.",
+        "Plot twist."
+    )
+
+    /** Frase hero per laureati (ciclica tramite laba.heroPhraseCycle). */
+    fun getHeroPhraseForGraduate(): String {
+        val cycle = appearancePreferences.getHeroPhraseCycle()
+        val idx = cycle % heroPhrasesGraduate.size
+        return heroPhrasesGraduate[idx]
+    }
+
+    /** Pattern sfondo hero (wave, dots, grid, etc.) da AppearancePreferences. */
+    fun getHeroPattern(): String = appearancePreferences.getPattern()
+
     /**
      * Estrae l'anno accademico dal piano studi (ESATTAMENTE come iOS)
      * Implementazione basata su courseDisplayInfo in ContentView.swift righe 395-425
@@ -452,6 +494,14 @@ class HomeViewModel @Inject constructor(
                 // Calcola esami prenotati (identico a iOS)
                 val bookedExams = calculateBookedExams(exams, profile)
                 
+                // Messaggio notifica per hero (reformatMessaggioHome - identico a iOS)
+                val heroNotificationPreview = notifications
+                    .filter { !it.isRead }
+                    .firstOrNull()
+                    ?.messaggio
+                    ?.let { reformatMessaggioHome(it) }
+                    ?.takeIf { it.isNotBlank() }
+                
                 _uiState.value = HomeUiState(
                     displayName = displayName,
                     statusPills = statusPills,
@@ -466,6 +516,7 @@ class HomeViewModel @Inject constructor(
                     lessonsToday = lessonsToday,
                     upcomingExamsCount = upcomingExamsCount,
                     bookedExams = bookedExams,
+                    heroNotificationPreview = heroNotificationPreview,
                     isLoading = isLoading
                 )
             }.collect { }
@@ -473,6 +524,25 @@ class HomeViewModel @Inject constructor(
     }
     
     // MARK: - Helper Functions (exactly like iOS)
+    
+    /**
+     * Riformatta il messaggio per la preview in Home (identico a iOS reformatMessaggioHome).
+     * Es: "Dispensa di X inserita" → "Inserita dispensa di X"
+     */
+    private fun reformatMessaggioHome(s: String): String {
+        val trimmed = s.trim()
+        val norm = trimmed.lowercase()
+        return when {
+            norm.contains("dispensa") -> {
+                val regex = Regex("(?i)dispensa\\s+di\\s+(.+?)\\s+inserita")
+                regex.find(trimmed)?.groupValues?.getOrNull(1)?.trim()?.let { materia ->
+                    "Inserita dispensa di $materia"
+                } ?: "Nuova dispensa inserita"
+            }
+            norm.contains("programma") -> "Nuovo programma caricato"
+            else -> trimmed
+        }
+    }
     
     private fun isAttivitaOTesi(exam: Esame): Boolean {
         val title = exam.corso.lowercase()
@@ -546,8 +616,9 @@ class HomeViewModel @Inject constructor(
         }
         val declaredActivitiesCFA = attivita.sumOf { it.cfa?.toIntOrNull() ?: 0 }
         val anyActivityCompleted = attivita.any { isCompleted(it) }
+        // Identico a iOS HomeView cfaEarnedComputed: laureato = 10 fissi, altrimenti min(10, dichiarati)
         val activitiesEarned = when {
-            isGraduated -> declaredActivitiesCFA // laureato: tutti i CFA dichiarati sono acquisiti
+            isGraduated -> 10 // laureato: consideriamo acquisiti i 10 CFA totali di Attività (come iOS)
             anyActivityCompleted -> min(10, declaredActivitiesCFA)
             else -> 0
         }
@@ -886,5 +957,6 @@ data class HomeUiState(
     val lessonsToday: List<LessonUi> = emptyList(),
     val upcomingExamsCount: Int = 0,
     val bookedExams: List<Esame> = emptyList(), // Esami prenotati
+    val heroNotificationPreview: String? = null, // Messaggio prima notifica non letta (reformatMessaggioHome)
     val isLoading: Boolean = false
 )

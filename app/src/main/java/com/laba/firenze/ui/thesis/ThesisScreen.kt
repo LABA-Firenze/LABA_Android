@@ -281,9 +281,10 @@ fun ThesisScreen(
                 )
             }
 
-            // Pergamena Section
+            // Pergamena Section (link solo se laureato, altrimenti placeholder come iOS)
             item {
                 PergamenaSection(
+                    isGraduated = uiState.isGraduated,
                     onNavigateToPergamena = { navController.navigate("pergamena") }
                 )
             }
@@ -538,6 +539,7 @@ private fun DocumentItem(
 
 @Composable
 private fun PergamenaSection(
+    isGraduated: Boolean,
     onNavigateToPergamena: () -> Unit
 ) {
     Card(
@@ -557,21 +559,50 @@ private fun PergamenaSection(
                 fontWeight = FontWeight.Bold
             )
             
-            Button(
-                onClick = onNavigateToPergamena,
-                modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.primary
-                ),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Newspaper,
-                    contentDescription = null,
-                    modifier = Modifier.size(20.dp)
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Come richiederla e ritirarla")
+            if (isGraduated) {
+                Button(
+                    onClick = onNavigateToPergamena,
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary
+                    ),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Newspaper,
+                        contentDescription = null,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Come richiederla e ritirarla")
+                }
+            } else {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Lock,
+                            contentDescription = null,
+                            modifier = Modifier.size(20.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = "Disponibile dopo la discussione",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Text(
+                        text = "Una volta conclusa con successo la tua prova finale potrai accedere qui alla guida completa per richiedere e ritirare la pergamena ufficiale.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
         }
     }
@@ -617,7 +648,7 @@ private fun ContactsSection(
                         modifier = Modifier.size(20.dp)
                     )
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("Regolamento", style = MaterialTheme.typography.labelMedium)
+                    Text("Apri regolamento tesi", style = MaterialTheme.typography.labelMedium)
                 }
                 
                 Button(
@@ -634,7 +665,7 @@ private fun ContactsSection(
                         modifier = Modifier.size(20.dp)
                     )
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("Segreteria", style = MaterialTheme.typography.labelMedium)
+                    Text("Scrivi alla Segreteria", style = MaterialTheme.typography.labelMedium)
                 }
             }
         }
@@ -656,5 +687,7 @@ data class ThesisUiState(
     val allExamsCompleted: Boolean = false,
     val presentationGrade: String = "—",
     val minPages: Int = 80,
-    val canGraduate: Boolean = false
+    val canGraduate: Boolean = false,
+    /** Laureato: status profilo contiene "laureat" — link pergamena visibile solo se true */
+    val isGraduated: Boolean = false
 )

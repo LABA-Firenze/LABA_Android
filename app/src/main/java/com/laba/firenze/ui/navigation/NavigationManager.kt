@@ -129,6 +129,28 @@ class NavigationManager @Inject constructor(
         saveConfiguration()
     }
 
+    /**
+     * Aggiunge il tab alla barra se non c'è già (es. per aprire doc da notifica push).
+     * Comportamento identico a iOS ensureTabInBar.
+     */
+    fun ensureTabInBar(tab: AppTab) {
+        if (tab.isLocked) return
+        val current = _activeTabs.value
+        if (current.contains(tab)) return
+        if (current.size >= 5) return
+
+        val mutable = current.toMutableList()
+        val profileIndex = mutable.indexOf(AppTab.PROFILE)
+        if (profileIndex != -1) {
+            mutable.add(profileIndex, tab)
+        } else {
+            mutable.add(tab)
+        }
+        _activeTabs.value = enforceHomeAndProfilePosition(mutable)
+        updateHiddenTabs()
+        saveConfiguration()
+    }
+
     // Move tab within active list
     fun moveTab(fromIndex: Int, toIndex: Int) {
         if (fromIndex == toIndex) return

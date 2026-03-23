@@ -168,7 +168,7 @@ private fun AttivitaIntegrativeTabContent(internships: List<InternshipPayload>) 
     ) {
         item {
             Section(
-                title = "Esperienze formative",
+                title = "Tirocini",
                 content = {
                     if (internships.isNotEmpty()) {
                         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -470,9 +470,9 @@ private fun EmptyFilterState(filter: SeminariFilter) {
             )
             Text(
                 text = when (filter) {
-                    SeminariFilter.FREQUENTATI -> "Nessuna attività frequentata e convalidata"
-                    SeminariFilter.PRENOTABILI -> "Nessuna attività prenotabile al momento"
-                    SeminariFilter.TUTTI -> "Nessuna attività disponibile"
+                    SeminariFilter.FREQUENTATI -> "Nessun seminario frequentato e convalidato"
+                    SeminariFilter.PRENOTABILI -> "Nessun seminario prenotabile al momento"
+                    SeminariFilter.TUTTI -> "Nessun seminario disponibile"
                 },
                 style = MaterialTheme.typography.bodyLarge,
                 textAlign = TextAlign.Center,

@@ -80,7 +80,7 @@ fun BookedExamsScreen(
                         tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Text(
-                        text = "Non hai esami prenotati",
+                        text = "Nessun esame prenotato",
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold
                     )

@@ -114,7 +114,7 @@ fun ServiziScreen(
                                 sharedPrefs.edit { putBoolean("laba.timetable.enabled", false) }
                             }
                         },
-                        title = "Orari",
+                        title = "Orario delle lezioni",
                         icon = Icons.Default.CalendarMonth,
                         iconColor = Color(0xFF9C27B0), // Purple
                         showBeta = true
@@ -161,7 +161,7 @@ fun ServiziScreen(
             item {
                 Section(title = "Accesso e Connessioni") {
                     NavigationItem(
-                        title = "Wi-Fi LABA",
+                        title = "Wi-Fi",
                         icon = Icons.Default.Wifi,
                         onClick = { navController.navigate("wifi-laba") }
                     )
@@ -180,11 +180,11 @@ fun ServiziScreen(
         }
     }
     
-    // Alert per Orari Beta
+    // Alert per Orario delle lezioni Beta (identico iOS)
     if (showTimetableDisclaimer) {
         AlertDialog(
             onDismissRequest = { showTimetableDisclaimer = false },
-            title = { Text("Orari in Beta") },
+            title = { Text("Orario delle lezioni in Beta") },
             text = {
                 Text("Gli orari sono in fase di inserimento e non si assicura la correttezza. Per informazioni ufficiali, consulta l'orario fornito dalla segreteria.")
             },

@@ -61,9 +61,12 @@ import com.laba.firenze.ui.lessons.FullTimetableScreen
 import com.laba.firenze.ui.lessons.LessonDetailScreen
 import com.laba.firenze.ui.registratore.RegistratoreLezioniScreen
 import com.laba.firenze.ui.session.SessioneStudioScreen
+import com.laba.firenze.ui.network.NetworkStatusViewModel
 import android.net.Uri
 import com.laba.firenze.domain.model.Achievement
 import com.laba.firenze.MainActivityViewModel
+import com.laba.firenze.ui.navigation.AppTab
+import kotlinx.coroutines.delay
 
 sealed class LABANavigation(val route: String, val icon: ImageVector, val title: String) {
     object Home : LABANavigation("home", Icons.Default.Dashboard, "Bacheca")
@@ -82,9 +85,14 @@ fun LABANavigation(
     mainViewModel: MainActivityViewModel = hiltViewModel()
 ) {
     val navController = rememberNavController()
+    val networkViewModel: NetworkStatusViewModel = hiltViewModel()
+    val isOnline by networkViewModel.isOnline.collectAsStateWithLifecycle()
     val activeTabs by navigationViewModel.activeTabs.collectAsStateWithLifecycle()
     val pendingLessonId by mainViewModel.pendingDeepLink.collectAsStateWithLifecycle()
     val pendingNotificationTap by mainViewModel.pendingNotificationTap.collectAsStateWithLifecycle()
+    val pendingDocumentDeepLink by mainViewModel.pendingDocumentDeepLink.collectAsStateWithLifecycle()
+    val bookableExamsCount by mainViewModel.bookableExamsCount.collectAsStateWithLifecycle()
+    val bookableSeminarsCount by mainViewModel.bookableSeminarsCount.collectAsStateWithLifecycle()
     
     // Deep link laba://lesson/{lessonId} (identico a iOS)
     LaunchedEffect(pendingLessonId) {
@@ -106,7 +114,32 @@ fun LABANavigation(
             }
         }
     }
-    
+
+    // Deep link documento da push (tipo 0=Programmi, 1=Dispense + oid) - ensureTabInBar (identico a iOS 1.3)
+    LaunchedEffect(pendingDocumentDeepLink) {
+        pendingDocumentDeepLink?.let { payload ->
+            val tab = when (payload.tipo) {
+                0 -> AppTab.PROGRAMS
+                1 -> AppTab.HANDOUTS
+                else -> null
+            }
+            if (tab != null) {
+                navigationViewModel.navigationManager.ensureTabInBar(tab)
+                navController.navigate(tab.route) {
+                    popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                    launchSingleTop = true
+                    restoreState = true
+                }
+                delay(500)
+                val titleEnc = android.net.Uri.encode("Documento")
+                navController.navigate("document_viewer/${payload.oid}/$titleEnc/_") {
+                    launchSingleTop = true
+                }
+            }
+            mainViewModel.clearPendingDocumentDeepLink()
+        }
+    }
+
     // Achievement Unlocked Toast Banner (global) - shown in all screens
     val achievementManagerViewModel: com.laba.firenze.ui.gamification.AchievementsViewModel = hiltViewModel()
     val recentlyUnlocked by achievementManagerViewModel.recentlyUnlocked.collectAsStateWithLifecycle()
@@ -135,13 +168,25 @@ fun LABANavigation(
                 
                 activeTabs.forEach { tab ->
                     val isSelected = currentDestination?.hierarchy?.any { it.route == tab.route } == true
+                    val showExamsBadge = tab == AppTab.EXAMS && bookableExamsCount > 0
+                    val showSeminarsBadge = tab == AppTab.SEMINARS && bookableSeminarsCount > 0
+                    val iconTint = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
                     NavigationBarItem(
-                        icon = { 
-                            Icon(
-                                tab.icon, 
-                                contentDescription = tab.title,
-                                tint = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
-                            ) 
+                        icon = {
+                            if (showExamsBadge || showSeminarsBadge) {
+                                BadgedBox(
+                                    badge = {
+                                        when {
+                                            showExamsBadge -> Badge { Text("!") }
+                                            else -> Badge { Text(bookableSeminarsCount.toString()) }
+                                        }
+                                    }
+                                ) {
+                                    Icon(tab.icon, contentDescription = tab.title, tint = iconTint)
+                                }
+                            } else {
+                                Icon(tab.icon, contentDescription = tab.title, tint = iconTint)
+                            }
                         },
                         label = { 
                             Text(
@@ -180,10 +225,40 @@ fun LABANavigation(
         }
     ) { paddingValues ->
         Box(modifier = Modifier.fillMaxSize().padding(paddingValues)) {
+            // NetworkMonitor: banner offline (identico a iOS)
+            AnimatedVisibility(
+                visible = !isOnline,
+                enter = expandVertically(),
+                exit = shrinkVertically()
+            ) {
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    color = MaterialTheme.colorScheme.errorContainer,
+                    shadowElevation = 4.dp
+                ) {
+                    Row(
+                        modifier = Modifier.padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        Icon(
+                            Icons.Default.CloudOff,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onErrorContainer
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            "Nessuna connessione internet",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onErrorContainer
+                        )
+                    }
+                }
+            }
             NavHost(
                 navController = navController,
                 startDestination = LABANavigation.Home.route,
-            modifier = Modifier.fillMaxSize(),
+                modifier = Modifier.fillMaxSize(),
             enterTransition = { slideInHorizontally(initialOffsetX = { it }, animationSpec = tween(300)) },
             exitTransition = { slideOutHorizontally(targetOffsetX = { -it }, animationSpec = tween(300)) },
             popEnterTransition = { slideInHorizontally(initialOffsetX = { -it }, animationSpec = tween(300)) },
@@ -261,7 +336,7 @@ fun LABANavigation(
                 enterTransition = { fadeIn(animationSpec = tween(200)) },
                 exitTransition = { fadeOut(animationSpec = tween(200)) }
             ) {
-                ProfileScreen(navController)
+                ProfileScreen(navController, navigationManager = navigationViewModel.navigationManager)
             }
             
             // Per Te Section Routes
@@ -337,6 +412,10 @@ fun LABANavigation(
                 com.laba.firenze.ui.appearance.AnimationSettingsScreen(navController)
             }
 
+            composable("home_section_order") {
+                com.laba.firenze.ui.home.HomeSectionOrderScreen(navController)
+            }
+            
             composable("navigation_custom") {
                 com.laba.firenze.ui.appearance.NavigationCustomizationScreen(
                     navController = navController,

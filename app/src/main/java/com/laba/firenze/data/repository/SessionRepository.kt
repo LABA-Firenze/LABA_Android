@@ -263,6 +263,65 @@ class SessionRepository @Inject constructor(
         return restoreSessionStrong(force = false)
     }
     
+    /**
+     * Se il token è scaduto e non possiamo fare silent refresh (no credenziali) → forza logout.
+     * Identico a iOS SessionViewModel.forceLogoutIfExpired()
+     */
+    suspend fun forceLogoutIfExpired() {
+        val token = tokenStore.getCurrentToken()
+        if (token.isEmpty()) return
+        
+        val remaining = jwtDecoder.getTokenSecondsRemaining(token) ?: -1
+        val canAttemptSilentRefresh = keychainHelper.fetchKeychainCredentials() != null
+        
+        if (remaining <= 0 && !canAttemptSilentRefresh) {
+            Log.d("SessionRepository", "[Auth] Force logout: expired token & no silent refresh allowed")
+            logout()
+        }
+    }
+    
+    /**
+     * Chiamare quando l'app torna in foreground (identico a iOS handleSceneBecameActive).
+     * Se token in scadenza (< 60s) o scaduto → restore, poi forceLogoutIfExpired.
+     */
+    suspend fun handleAppResumed() {
+        val token = tokenStore.getCurrentToken()
+        val remaining = if (token.isNotEmpty()) jwtDecoder.getTokenSecondsRemaining(token) ?: -1 else -1
+        
+        when {
+            remaining > 0 && remaining < 60 -> {
+                Log.d("SessionRepository", "[Auth] App became active → token has ${remaining}s left, refreshing...")
+                _isRefreshingSession.value = true
+                try {
+                    restoreSessionStrong(force = false)
+                    if (isLoggedIn()) {
+                        val t = tokenStore.getCurrentToken()
+                        val stillOk = jwtDecoder.getTokenSecondsRemaining(t)?.let { it > 0 } == true
+                        if (stillOk) loadAll()
+                    }
+                } finally {
+                    _isRefreshingSession.value = false
+                }
+                forceLogoutIfExpired()
+            }
+            remaining <= 0 && token.isNotEmpty() -> {
+                Log.d("SessionRepository", "[Auth] App became active → token expired, forcing refresh...")
+                _isRefreshingSession.value = true
+                try {
+                    restoreSessionStrong(force = true)
+                    if (isLoggedIn()) {
+                        val t = tokenStore.getCurrentToken()
+                        val stillOk = jwtDecoder.getTokenSecondsRemaining(t)?.let { it > 0 } == true
+                        if (stillOk) loadAll()
+                    }
+                } finally {
+                    _isRefreshingSession.value = false
+                }
+                forceLogoutIfExpired()
+            }
+        }
+    }
+    
     suspend fun logout() {
         // Pulisce tutto (identico a iOS)
         tokenManager.clearCredentials()

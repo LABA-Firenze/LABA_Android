@@ -45,6 +45,9 @@ class ThesisViewModel @Inject constructor(
                 // Verifica se lo studente può laurearsi
                 val canGraduate = canStudentGraduate(profile, exams)
                 
+                // Laureato: status profilo contiene "laureat" (come iOS)
+                val isGraduated = (profile?.status?.lowercase() ?: "").contains("laureat")
+                
                 // Calcola voto di presentazione solo se può laurearsi
                 val presentationGrade = if (canGraduate) {
                     calculatePresentationGrade(exams)
@@ -62,7 +65,8 @@ class ThesisViewModel @Inject constructor(
                     allExamsCompleted = allCompleted,
                     presentationGrade = presentationGrade,
                     minPages = minPages,
-                    canGraduate = canGraduate
+                    canGraduate = canGraduate,
+                    isGraduated = isGraduated
                 )
                 
             } catch (e: Exception) {

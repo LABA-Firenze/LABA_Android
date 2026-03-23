@@ -6,6 +6,7 @@ import androidx.activity.ComponentActivity
 import android.content.Intent
 import android.content.SharedPreferences
 import android.net.Uri
+import android.view.HapticFeedbackConstants
 import android.view.Window
 import androidx.compose.ui.platform.ComposeView
 import androidx.core.view.WindowCompat
@@ -18,6 +19,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.net.toUri
 import coil.compose.SubcomposeAsyncImage
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -36,15 +38,19 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.laba.firenze.data.service.ProfilePhotoImageCache
+import com.laba.firenze.ui.navigation.AppTab
+import com.laba.firenze.ui.navigation.NavigationManager
 import com.laba.firenze.data.service.ProfilePhotoService
 import com.laba.firenze.ui.tutorial.TutorialScreen
 import kotlinx.coroutines.Dispatchers
@@ -227,6 +233,7 @@ private fun isBiennioProfile(profile: com.laba.firenze.domain.model.StudentProfi
 @Composable
 fun ProfileScreen(
     navController: NavController,
+    navigationManager: NavigationManager,
     viewModel: ProfileViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -234,6 +241,8 @@ fun ProfileScreen(
     var showTutorial by remember { mutableStateOf(false) }
     var showGroupDisabledAlert by remember { mutableStateOf(false) }
     var showMatricoleDialog by remember { mutableStateOf(false) }
+    var showLogoutConfirm by remember { mutableStateOf(false) }
+    var showDebugAccess by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
     
     // Track section visit + ricarica foto da Supabase (impostata su iOS → visibile su Android)
@@ -276,6 +285,7 @@ fun ProfileScreen(
     val achievements by viewModel.achievements.collectAsState()
     val totalPoints by viewModel.totalPoints.collectAsState()
     val unlockedCount = achievements.count { it.isUnlocked }
+    val hiddenTabs by navigationManager.hiddenTabs.collectAsState()
 
     val uploadPhotoError by viewModel.uploadPhotoError.collectAsState()
     LaunchedEffect(uploadPhotoError) {
@@ -392,37 +402,22 @@ fun ProfileScreen(
             )
         }
         
-        // Risorse Section (con Regolamenti e descrizione footer)
+        // Risorse Section (da hiddenTabs, come iOS 4.3)
         item {
-            Column(
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
+            val risorseItems = hiddenTabs
+                .filter { it != AppTab.HOME && it != AppTab.PROFILE }
+                .map { tab ->
+                    ProfileMenuActionItem(
+                        title = tab.title,
+                        icon = tab.icon,
+                        onClick = { navController.navigate(tab.route) }
+                    )
+                }
             ProfileSection(
                 title = "Risorse",
-                items = listOf(
-                    ProfileMenuActionItem(
-                        title = "Programmi didattici",
-                        icon = Icons.Default.School,
-                        onClick = { navController.navigate("materials") }
-                    ),
-                    ProfileMenuActionItem(
-                        title = "Dispense",
-                        icon = Icons.Default.Description,
-                        onClick = { navController.navigate("handouts") }
-                    ),
-                        ProfileMenuActionItem(
-                            title = "Regolamenti",
-                            icon = Icons.AutoMirrored.Filled.Rule,
-                            onClick = { navController.navigate("regulations") }
-                    ),
-                    ProfileMenuActionItem(
-                        title = "Tesi di laurea",
-                        icon = Icons.Default.School,
-                        onClick = { navController.navigate("thesis") }
-                    )
-                )
+                items = risorseItems,
+                footer = "Puoi personalizzare la barra di navigazione e spostare qui le sezioni che usi meno da Profilo > Aspetto."
             )
-            }
         }
         
         // Preferenze Section (ordine come iOS: prima Notifiche e Aspetto)
@@ -452,20 +447,6 @@ fun ProfileScreen(
                                 launchSingleTop = true
                             }
                         }
-                    )
-                )
-            )
-        }
-        
-        // Utilità Section (FAQ dopo Preferenze, come iOS)
-        item {
-            ProfileSection(
-                title = "Utilità",
-                items = listOf(
-                    ProfileMenuActionItem(
-                        title = "Consulta FAQ",
-                        icon = Icons.AutoMirrored.Filled.Help,
-                        onClick = { navController.navigate("faq") }
                     )
                 )
             )
@@ -520,12 +501,17 @@ fun ProfileScreen(
             )
         }
         
-        // Useful Links Section
+        // Link utili Section (FAQ, Sito, DSU come iOS)
         item {
             val context = LocalContext.current
             ProfileSection(
                 title = "Link utili",
                 items = listOf(
+                    ProfileMenuActionItem(
+                        title = "Consulta FAQ",
+                        icon = Icons.AutoMirrored.Filled.Help,
+                        onClick = { navController.navigate("faq") }
+                    ),
                     ProfileMenuActionItem(
                         title = "Sito web LABA",
                         icon = Icons.Default.Language,
@@ -582,7 +568,7 @@ fun ProfileScreen(
                             try {
                                 // Crea Intent con chooser per selezionare browser
                                 val webIntent = Intent(Intent.ACTION_VIEW).apply {
-                                    data = "https://iris.rete.toscana.it/public".toUri()
+                                    data = "https://iris.rete.toscana.it/public/".toUri()
                                 }
                                 
                                 // Crea chooser per permettere selezione browser
@@ -603,7 +589,7 @@ fun ProfileScreen(
                                     var opened = false
                                     for (packageName in browserPackages) {
                                         val intent = Intent(Intent.ACTION_VIEW).apply {
-                                            data = "https://iris.rete.toscana.it/public".toUri()
+                                            data = "https://iris.rete.toscana.it/public/".toUri()
                                             setPackage(packageName)
                                         }
                                         if (intent.resolveActivity(context.packageManager) != null) {
@@ -676,7 +662,7 @@ fun ProfileScreen(
             )
         }
         
-        // Actions Section
+        // Actions Section (identico a iOS: Debug + Logout con conferma)
         item {
             ProfileSection(
                 title = "Azioni",
@@ -685,15 +671,19 @@ fun ProfileScreen(
                         title = "Cosa posso fare?",
                         icon = Icons.Default.Info,
                         iconColor = MaterialTheme.colorScheme.primary,
-                        onClick = { 
-                            showTutorial = true
-                        }
+                        onClick = { showTutorial = true }
+                    ),
+                    ProfileActionItem(
+                        title = "Debug",
+                        icon = Icons.Default.Build,
+                        iconColor = Color(0xFF5E35B1), // Indigo come iOS
+                        onClick = { showDebugAccess = true }
                     ),
                     ProfileActionItem(
                         title = "Esci",
                         icon = Icons.AutoMirrored.Filled.ExitToApp,
                         iconColor = Color(0xFFF44336), // Rosso come iOS
-                        onClick = { viewModel.logout() }
+                        onClick = { showLogoutConfirm = true }
                     )
                 )
             )
@@ -757,6 +747,38 @@ fun ProfileScreen(
                 TextButton(onClick = { showGroupDisabledAlert = false }) {
                     Text("OK")
                 }
+            }
+        )
+    }
+
+    // Logout: dialog conferma (identico a iOS 4.5)
+    if (showLogoutConfirm) {
+        AlertDialog(
+            onDismissRequest = { showLogoutConfirm = false },
+            title = { Text("Vuoi davvero uscire?") },
+            confirmButton = {
+                TextButton(onClick = {
+                    showLogoutConfirm = false
+                    viewModel.logout()
+                }) {
+                    Text("Esci", color = Color(0xFFF44336))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showLogoutConfirm = false }) {
+                    Text("Annulla")
+                }
+            }
+        )
+    }
+
+    // Debug: codice 0526 prima di aprire DebugScreen (identico a iOS 4.4)
+    if (showDebugAccess) {
+        DebugAccessDialog(
+            onDismiss = { showDebugAccess = false },
+            onSuccess = {
+                showDebugAccess = false
+                navController.navigate("debug")
             }
         )
     }
@@ -853,7 +875,7 @@ private fun ProfileHeader(
     unlockedCount: Int,
     totalPoints: Int,
     onAchievementsClick: () -> Unit,
-    @Suppress("UNUSED_PARAMETER") onServiziClick: () -> Unit,
+    onServiziClick: () -> Unit,
     onMatricoleClick: () -> Unit
 ) {
     val isDarkTheme = isSystemInDarkTheme()
@@ -1026,16 +1048,15 @@ private fun ProfileHeader(
                 }
             }
             
-            // Widget Traguardi (solo se abilitato)
-            if (achievementsEnabled) {
-                Spacer(modifier = Modifier.height(4.dp))
-                ProfileAchievementWidget(
-                    unlockedCount = unlockedCount,
-                    totalPoints = totalPoints,
-                    enabled = achievementsEnabled,
-                    onClick = onAchievementsClick // Sempre apre la schermata Traguardi
-                )
-            }
+            // Widget Traguardi (sempre visibile; overlay lucchetto se disattivati - identico a iOS 4.2)
+            Spacer(modifier = Modifier.height(4.dp))
+            ProfileAchievementWidget(
+                unlockedCount = unlockedCount,
+                totalPoints = totalPoints,
+                achievementsEnabled = achievementsEnabled,
+                onAchievementsClick = onAchievementsClick,
+                onDisabledTap = onServiziClick
+            )
         }
     }
 }
@@ -1044,8 +1065,9 @@ private fun ProfileHeader(
 private fun ProfileAchievementWidget(
     unlockedCount: Int,
     totalPoints: Int,
-    enabled: Boolean = true,
-    onClick: () -> Unit
+    achievementsEnabled: Boolean,
+    onAchievementsClick: () -> Unit,
+    onDisabledTap: () -> Unit
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val shape = RoundedCornerShape(18.dp)
@@ -1061,25 +1083,35 @@ private fun ProfileAchievementWidget(
         start = androidx.compose.ui.geometry.Offset.Zero,
         end = androidx.compose.ui.geometry.Offset(1000f, 1000f)
     )
-    
-    Card(
+    val borderColor = if (achievementsEnabled) accent.copy(alpha = if (isDarkTheme) 0.35f else 0.4f)
+        else Color.Gray.copy(alpha = 0.4f)
+    val ripple = rememberRipple(bounded = true)
+    val view = LocalView.current
+
+    Box(
         modifier = Modifier
             .fillMaxWidth()
             .clip(shape)
             .background(gradient)
+            .border(1.dp, borderColor, shape)
             .clickable(
-                enabled = enabled,
                 interactionSource = interactionSource,
-                indication = rememberRipple(bounded = true),
-                onClick = onClick
-            ),
-        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
-        shape = shape
+                indication = ripple,
+                onClick = {
+                    if (achievementsEnabled) {
+                        onAchievementsClick()
+                    } else {
+                        (view as? android.view.View)?.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
+                        onDisabledTap()
+                    }
+                }
+            )
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 12.dp),
+                .padding(horizontal = 16.dp, vertical = 12.dp)
+                .graphicsLayer { alpha = if (achievementsEnabled) 1f else 0.5f },
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -1087,66 +1119,57 @@ private fun ProfileAchievementWidget(
                 horizontalArrangement = Arrangement.spacedBy(16.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Icona trofeo in cerchio
                 Surface(
                     modifier = Modifier.size(44.dp),
                     shape = CircleShape,
-                    color = MaterialTheme.colorScheme.primaryContainer
+                    color = accent.copy(alpha = 0.35f)
                 ) {
-                    Box(
-                        contentAlignment = Alignment.Center
-                    ) {
+                    Box(contentAlignment = Alignment.Center) {
                         Icon(
                             imageVector = Icons.Default.EmojiEvents,
                             contentDescription = null,
                             modifier = Modifier.size(22.dp),
-                            tint = MaterialTheme.colorScheme.primary
+                            tint = accent
                         )
                     }
                 }
-                
                 Column {
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(6.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(
-                            text = "Traguardi",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                        Text(
-                            text = "$unlockedCount",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                        Text("Traguardi", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                        Text("$unlockedCount", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(6.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.AutoAwesome,
-                            contentDescription = null,
-                            modifier = Modifier.size(14.dp),
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-                        Text(
-                            text = "+ $totalPoints CFApp",
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.primary
-                        )
+                        Icon(Icons.Default.AutoAwesome, contentDescription = null, modifier = Modifier.size(14.dp), tint = accent)
+                        Text("+ $totalPoints CFApp", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = accent)
                     }
                 }
             }
-            
-            Icon(
-                imageVector = Icons.Default.ChevronRight,
-                contentDescription = null,
-                modifier = Modifier.size(20.dp),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            Icon(Icons.Default.ChevronRight, contentDescription = null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+
+        // Overlay "Traguardi disattivati" con lucchetto (identico a iOS 4.2)
+        if (!achievementsEnabled) {
+            Box(
+                modifier = Modifier
+                    .matchParentSize()
+                    .clip(shape)
+                    .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.85f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(Icons.Default.Lock, contentDescription = null, modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.onSurface)
+                    Text("Traguardi disattivati", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
+                }
+            }
         }
     }
 }
@@ -1154,7 +1177,8 @@ private fun ProfileAchievementWidget(
 @Composable
 private fun ProfileSection(
     title: String,
-    items: List<ProfileMenuItem>
+    items: List<ProfileMenuItem>,
+    footer: String? = null
 ) {
     Column(
         verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -1172,6 +1196,13 @@ private fun ProfileSection(
             items.forEach { item ->
                 ProfileMenuItem(item = item)
             }
+        }
+        if (footer != null) {
+            Text(
+                text = footer,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
+            )
         }
     }
 }

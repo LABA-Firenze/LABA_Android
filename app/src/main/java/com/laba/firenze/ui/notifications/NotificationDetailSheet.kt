@@ -5,6 +5,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.outlined.MarkEmailUnread
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -96,12 +97,12 @@ fun NotificationDetailSheet(
                                         horizontalArrangement = Arrangement.spacedBy(6.dp),
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
-                                        Icon(
-                                            if (notification.isRead) Icons.Default.Check else Icons.Default.Mail,
-                                            null,
-                                            modifier = Modifier.size(14.dp),
-                                            tint = if (notification.isRead) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
-                                        )
+                                Icon(
+                                    if (notification.isRead) Icons.Default.CheckCircle else Icons.Outlined.MarkEmailUnread,
+                                    null,
+                                    modifier = Modifier.size(14.dp),
+                                    tint = if (notification.isRead) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+                                )
                                         Text(
                                             if (notification.isRead) "Letta" else "Da leggere",
                                             style = MaterialTheme.typography.labelSmall,
@@ -122,7 +123,7 @@ fun NotificationDetailSheet(
                             ) {
                                 DropdownMenuItem(
                                     text = { Text(if (notification.isRead) "Da leggere" else "Segna letta") },
-                                    leadingIcon = { Icon(if (notification.isRead) Icons.Default.Mail else Icons.Default.Check, null) },
+                                    leadingIcon = { Icon(if (notification.isRead) Icons.Outlined.MarkEmailUnread else Icons.Default.CheckCircle, null) },
                                     onClick = { onReadChanged(!notification.isRead); showMenu = false }
                                 )
                                 DropdownMenuItem(

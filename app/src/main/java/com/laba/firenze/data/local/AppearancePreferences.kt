@@ -68,6 +68,15 @@ class AppearancePreferences @Inject constructor(
         prefs.edit().putString("hero_background_pattern", pattern).apply()
     }
 
+    /** Ciclo per frasi hero laureati (identico a iOS laba.heroPhraseCycle). Incrementa a ogni app in foreground. */
+    fun getHeroPhraseCycle(): Int {
+        return prefs.getInt("laba.heroPhraseCycle", 0)
+    }
+
+    fun incrementHeroPhraseCycle() {
+        prefs.edit().putInt("laba.heroPhraseCycle", getHeroPhraseCycle() + 1).apply()
+    }
+
     fun getActiveTabs(): List<String>? {
         val raw = prefs.getString("laba.nav.activeTabs", null) ?: return null
         return try {

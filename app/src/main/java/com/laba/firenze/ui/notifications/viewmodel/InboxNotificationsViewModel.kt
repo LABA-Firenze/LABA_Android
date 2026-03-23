@@ -5,8 +5,11 @@ import androidx.lifecycle.viewModelScope
 import com.laba.firenze.data.repository.SessionRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -32,6 +35,19 @@ class InboxNotificationsViewModel @Inject constructor(
     
     private val _isLoading = MutableStateFlow(true)
     val isLoading: StateFlow<Boolean> = _isLoading
+    
+    /** Toggle "Solo non lette" (come iOS NotificheView). */
+    private val _showOnlyUnread = MutableStateFlow(false)
+    val showOnlyUnread: StateFlow<Boolean> = _showOnlyUnread
+    
+    fun setShowOnlyUnread(show: Boolean) {
+        _showOnlyUnread.value = show
+    }
+    
+    /** Notifiche filtrate per showOnlyUnread. */
+    val filteredNotifications: StateFlow<List<NotificationDisplayItem>> = _notifications.combine(_showOnlyUnread) { list, onlyUnread ->
+        if (onlyUnread) list.filter { !it.isRead } else list
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
     
     init {
         loadNotifications()

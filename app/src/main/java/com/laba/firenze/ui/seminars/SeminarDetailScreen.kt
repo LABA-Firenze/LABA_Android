@@ -407,7 +407,7 @@ fun SeminarDetailScreen(
                                 Icon(Icons.Default.CalendarMonth, contentDescription = null)
                                 Spacer(modifier = Modifier.width(8.dp))
                             }
-                            Text("Prenota partecipazione")
+                            Text("Prenota seminario")
                         }
                         else -> Text(
                             text = "Prenotazione non disponibile",

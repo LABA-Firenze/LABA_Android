@@ -3,6 +3,7 @@ package com.laba.firenze.di
 import com.laba.firenze.BuildConfig
 import com.laba.firenze.data.api.AuthApi
 import com.laba.firenze.data.api.AuthHeaderInterceptor
+import com.laba.firenze.data.api.AuthRetryInterceptor
 import com.laba.firenze.data.api.GestionaleApi
 import com.laba.firenze.data.api.LogosUniApiService
 import com.laba.firenze.data.api.LogosUniAPIClient
@@ -29,7 +30,8 @@ object NetworkModule {
     @Provides
     @Singleton
     fun provideOkHttpClient(
-        authHeaderInterceptor: AuthHeaderInterceptor
+        authHeaderInterceptor: AuthHeaderInterceptor,
+        authRetryInterceptor: AuthRetryInterceptor
     ): OkHttpClient {
         val loggingInterceptor = HttpLoggingInterceptor().apply {
             level = HttpLoggingInterceptor.Level.BODY
@@ -37,6 +39,7 @@ object NetworkModule {
         
         return OkHttpClient.Builder()
             .addInterceptor(loggingInterceptor)
+            .addInterceptor(authRetryInterceptor) // 401 → restore + retry (identico a iOS withTokenRetry)
             .addInterceptor(authHeaderInterceptor) // Aggiunge Bearer token automaticamente
             .connectTimeout(30, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)

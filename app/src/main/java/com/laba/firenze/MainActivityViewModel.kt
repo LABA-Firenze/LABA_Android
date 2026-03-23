@@ -23,6 +23,16 @@ class MainActivityViewModel @Inject constructor(
     /** True durante il refresh del token (per mostrare "Aggiornamento accesso" come su iOS). */
     val isRefreshingSession: StateFlow<Boolean> = sessionRepository.isRefreshingSession
     
+    /** Numero esami prenotabili (badge "!" sul tab Esami). Identico a iOS bookableExamsCount. */
+    val bookableExamsCount: StateFlow<Int> = sessionRepository.exams
+        .map { list -> list.count { it.richiedibile } }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
+    
+    /** Numero seminari prenotabili (badge numerico sul tab Attività). Identico a iOS bookableSeminarsCount. */
+    val bookableSeminarsCount: StateFlow<Int> = sessionRepository.seminars
+        .map { list -> list.count { it.richiedibile } }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
+    
     /** Deep link laba://lesson/{lessonId} (identico a iOS handleDeepLink). */
     private val _pendingDeepLink = MutableStateFlow<String?>(null)
     val pendingDeepLink: StateFlow<String?> = _pendingDeepLink.asStateFlow()
@@ -46,6 +56,19 @@ class MainActivityViewModel @Inject constructor(
     
     fun clearPendingNotificationTap() {
         _pendingNotificationTap.value = null
+    }
+    
+    /** Deep link documento da push (tipo 0=Programmi, tipo 1=Dispense + oid). ensureTabInBar + apri doc. */
+    data class DocumentDeepLinkPayload(val tipo: Int, val oid: String)
+    private val _pendingDocumentDeepLink = MutableStateFlow<DocumentDeepLinkPayload?>(null)
+    val pendingDocumentDeepLink: StateFlow<DocumentDeepLinkPayload?> = _pendingDocumentDeepLink.asStateFlow()
+    
+    fun setPendingDocumentDeepLink(tipo: Int, oid: String) {
+        _pendingDocumentDeepLink.value = DocumentDeepLinkPayload(tipo = tipo, oid = oid)
+    }
+    
+    fun clearPendingDocumentDeepLink() {
+        _pendingDocumentDeepLink.value = null
     }
     
     init {
@@ -75,17 +98,15 @@ class MainActivityViewModel @Inject constructor(
             }
         }
         
-        // Silent login all'avvio (identico a iOS)
+        // Silent login all'avvio (identico a iOS cold start: restore + forceLogoutIfExpired)
         viewModelScope.launch {
             try {
                 println("🔐 MainActivityViewModel: Attempting silent login on startup")
-                val success = sessionRepository.restoreSessionStrong(force = false)
-                if (success) {
+                sessionRepository.restoreSessionStrong(force = false)
+                sessionRepository.forceLogoutIfExpired()
+                if (sessionRepository.isLoggedIn()) {
                     println("🔐 MainActivityViewModel: Silent login successful")
-                    
-                    // Verifica se i dati sono già stati caricati (per restore session)
                     if (!sessionRepository.isLoading.value) {
-                        // I dati sono già caricati, nascondi lo splash
                         _authState.value = _authState.value.copy(isLoading = false)
                     }
                 } else {
@@ -123,6 +144,19 @@ class MainActivityViewModel @Inject constructor(
     
     fun clearError() {
         _authState.value = _authState.value.copy(errorMessage = null)
+    }
+    
+    /**
+     * Chiamare quando l'app torna in foreground (identico a iOS handleSceneBecameActive).
+     */
+    fun onAppResumed() {
+        viewModelScope.launch {
+            try {
+                sessionRepository.handleAppResumed()
+            } catch (e: Exception) {
+                println("MainActivityViewModel: onAppResumed error: ${e.message}")
+            }
+        }
     }
     
     /**

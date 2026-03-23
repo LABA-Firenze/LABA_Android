@@ -108,13 +108,30 @@ class LABAFirebaseMessagingService : FirebaseMessagingService() {
     }
     
     private fun showNotification(title: String, body: String, data: Map<String, String>) {
+        // Ignorare payload minigiochi (Battaglia, Forza4, LABArola, Amici) - come iOS 5.4.3
+        val gameId = data["gameId"] ?: data["game"] ?: ""
+        val lowerGame = gameId.lowercase()
+        if (lowerGame.contains("battaglia") || lowerGame.contains("forza4") ||
+            lowerGame.contains("labarola") || lowerGame.contains("amici")) {
+            Log.d(TAG, "Ignoring minigame notification: $gameId")
+            return
+        }
+
         val notificationManager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
-        
+
+        // Estrai tipo e oid per deep link documento (come iOS NotificationInboxStore)
+        val tipo = data["tipo"]?.toIntOrNull() ?: data["attachmentType"]?.toIntOrNull()
+        val oid = (data["oid"] ?: data["Oid"])?.takeIf { it.isNotBlank() }
+
         val intent = Intent(this, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
             putExtra("notification_tap", true)
             putExtra("notification_title", title)
             putExtra("notification_body", body)
+            if (tipo != null && oid != null) {
+                putExtra("document_tipo", tipo)
+                putExtra("document_oid", oid)
+            }
         }
         val requestCode = (title + body).hashCode() and 0x7FFFFFFF
         val pendingIntent = PendingIntent.getActivity(

@@ -113,7 +113,9 @@ dependencies {
     implementation("androidx.compose.ui:ui-tooling-preview")
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.material3:material3-window-size-class")
+    implementation("androidx.compose.material:material")
     implementation("androidx.compose.material:material-icons-extended")
+    implementation("org.burnoutcrew.composereorderable:reorderable:0.9.6")
     
     // Navigation
     implementation("androidx.navigation:navigation-compose:2.7.6")
@@ -187,22 +189,32 @@ dependencies {
     debugImplementation("androidx.compose.ui:ui-test-manifest")
 }
 
-// Task per rimuovere file duplicati prima della build
-tasks.register("cleanDuplicates") {
-    doLast {
-        val buildDir = file("build/intermediates/classes/debug/transformDebugClassesWithAsm/dirs")
-        if (buildDir.exists()) {
-            buildDir.walkTopDown().forEach { file ->
-                if (file.isFile && file.name.matches(Regex(".* \\d+\\.class$"))) {
-                    file.delete()
-                    println("Rimosso file duplicato: ${file.name}")
-                }
-            }
+// Task per rimuovere file duplicati creati da iCloud/sync (es. "file 2.jar", "file 2.dex")
+// Necessario quando il progetto è in cartelle sincronizzate (Desktop, Documents)
+fun cleanDuplicateFiles(dir: java.io.File) {
+    if (!dir.exists()) return
+    dir.walkTopDown().forEach { f ->
+        if (f.isFile && f.name.matches(Regex("""^.+ \d+\.(class|jar|dex)$"""))) {
+            f.delete()
+            println("Rimosso duplicato iCloud: ${f.relativeTo(dir)}")
         }
     }
 }
 
-// Esegui cleanDuplicates prima di ogni build
+tasks.register("cleanDuplicates") {
+    doLast {
+        cleanDuplicateFiles(file("build/intermediates/classes/debug/transformDebugClassesWithAsm/dirs"))
+    }
+}
+
+// Rimuovi duplicati nella cartella DEX subito prima del merge (iCloud crea " 2.jar", " 2.dex")
+tasks.matching { it.name == "mergeProjectDexDebug" }.configureEach {
+    doFirst {
+        val dexOut = file("build/intermediates/project_dex_archive/debug/dexBuilderDebug/out")
+        cleanDuplicateFiles(dexOut)
+    }
+}
+
 tasks.named("preBuild").configure {
     dependsOn("cleanDuplicates")
 }

@@ -19,6 +19,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -32,8 +33,14 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.material.ExperimentalMaterialApi
+import androidx.compose.material.pullrefresh.PullRefreshIndicator
+import androidx.compose.material.pullrefresh.pullRefresh
+import androidx.compose.material.pullrefresh.rememberPullRefreshState
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.view.HapticFeedbackConstantsCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
@@ -46,7 +53,7 @@ import kotlin.random.Random
 import java.text.SimpleDateFormat
 import java.util.*
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterialApi::class)
 @Composable
 fun HomeScreen(
     navController: NavController,
@@ -70,6 +77,23 @@ fun HomeScreen(
     LaunchedEffect(Unit) { 
         viewModel.refreshOnAppear() 
     }
+
+    var userInitiatedRefresh by remember { mutableStateOf(false) }
+    val view = LocalView.current
+    LaunchedEffect(uiState.isLoading) {
+        if (!uiState.isLoading) {
+            if (userInitiatedRefresh) {
+                view.performHapticFeedback(HapticFeedbackConstantsCompat.CONFIRM)
+            }
+            userInitiatedRefresh = false
+        }
+    }
+    val isRefreshing = userInitiatedRefresh && uiState.isLoading
+    val onRefresh = {
+        userInitiatedRefresh = true
+        viewModel.performRefresh()
+    }
+    val pullRefreshState = rememberPullRefreshState(isRefreshing, onRefresh)
     
     val sectionOrder by viewModel.sectionOrder.collectAsStateWithLifecycle()
     val profile = viewModel.getUserProfile()
@@ -77,6 +101,7 @@ fun HomeScreen(
     val allExams = viewModel.getAllExams()
     val shouldShowBooked = viewModel.shouldShowBookedExams(profile, allExams)
     
+    Box(modifier = Modifier.fillMaxSize().pullRefresh(pullRefreshState)) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(
@@ -94,15 +119,22 @@ fun HomeScreen(
                     HeroSection(
                         heroInfo = heroInfo,
                         statusPills = uiState.statusPills,
-                        isGraduated = uiState.isGraduated
+                        isGraduated = uiState.isGraduated,
+                        heroGraduatePhrase = viewModel.getHeroPhraseForGraduate(),
+                        selectedPattern = viewModel.getHeroPattern(),
+                        heroNotificationPreview = uiState.heroNotificationPreview,
+                        onNavigateToInbox = { navController.navigate("inbox") }
                     )
                 }
                 "kpi" -> item {
+                    val dataAppeared = !uiState.isLoading
                     KpiCardsSection(
                         passedExams = uiState.passedExamsCount,
                         missingExams = uiState.missingExamsCount,
                         cfaEarned = uiState.cfaEarned,
-                        totalExams = uiState.totalExamsCount
+                        totalExams = uiState.totalExamsCount,
+                        allExams = allExams,
+                        dataAppeared = dataAppeared
                     )
                 }
                 "progress" -> item {
@@ -167,6 +199,12 @@ fun HomeScreen(
             }
         }
     }
+        PullRefreshIndicator(
+            refreshing = isRefreshing,
+            state = pullRefreshState,
+            modifier = Modifier.align(Alignment.TopCenter)
+        )
+    }
 }
 
 // MARK: - Hero Section
@@ -174,10 +212,13 @@ fun HomeScreen(
 private fun HeroSection(
     heroInfo: HeroInfo,
     statusPills: List<String>,
-    isGraduated: Boolean
+    isGraduated: Boolean,
+    heroGraduatePhrase: String = "ma perché usi ancora l'app?",
+    selectedPattern: String = "wave",
+    heroNotificationPreview: String? = null,
+    onNavigateToInbox: () -> Unit = {}
 ) {
     val density = LocalDensity.current
-    val context = LocalContext.current
     val infiniteTransition = rememberInfiniteTransition(label = "hero_animation")
     val animationPhase by infiniteTransition.animateFloat(
         initialValue = 0f,
@@ -188,14 +229,6 @@ private fun HeroSection(
         ),
         label = "hero_phase"
     )
-    
-    // Load pattern from preferences (dynamic reading)
-    val sharedPrefs = context.getSharedPreferences("LABA_PREFS", Context.MODE_PRIVATE)
-    var selectedPattern by remember { mutableStateOf("wave") }
-    
-    LaunchedEffect(Unit) {
-        selectedPattern = sharedPrefs.getString("hero_background_pattern", "wave") ?: "wave"
-    }
     
     Box(
         modifier = Modifier
@@ -255,25 +288,61 @@ private fun HeroSection(
             
             StatusPillsRow(
                 heroInfo = heroInfo,
-                pills = statusPills, 
-                isGraduated = isGraduated
+                pills = statusPills,
+                isGraduated = isGraduated,
+                heroGraduatePhrase = heroGraduatePhrase
             )
+            
+            // Messaggio notifica non letta (reformatMessaggioHome - identico a iOS 2.8.2)
+            heroNotificationPreview?.let { msg ->
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable(onClick = onNavigateToInbox),
+                    color = Color.White.copy(alpha = 0.2f),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Notifications,
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Text(
+                            text = msg,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color.White.copy(alpha = 0.95f),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+            }
         }
     }
 }
 
 @Composable
-private fun StatusPillsRow(heroInfo: HeroInfo, @Suppress("UNUSED_PARAMETER") pills: List<String>, isGraduated: Boolean) {
-    // pills parameter not used but kept for API consistency
+private fun StatusPillsRow(
+    heroInfo: HeroInfo,
+    @Suppress("UNUSED_PARAMETER") pills: List<String>,
+    isGraduated: Boolean,
+    heroGraduatePhrase: String = "ma perché usi ancora l'app?"
+) {
     Row(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         if (isGraduated) {
-            // Se laureato: mostra solo pillola di status
+            // Se laureato: pillola + frase ciclica (identico a iOS heroPhraseForGraduate)
             Pill("Laureato")
             Text(
-                text = "ma perché usi ancora l'app?",
+                text = heroGraduatePhrase,
                 style = MaterialTheme.typography.bodyMedium,
                 color = Color.White.copy(alpha = 0.95f)
             )
@@ -328,15 +397,36 @@ private fun Pill(text: String) {
 }
 
 // MARK: - KPI Cards Section
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun KpiCardsSection(
     passedExams: Int,
     missingExams: Int,
     cfaEarned: Int,
-    totalExams: Int
+    totalExams: Int,
+    allExams: List<Esame> = emptyList(),
+    dataAppeared: Boolean = true
 ) {
+    val view = LocalView.current
+    var showExamsEasterEggSheet by remember { mutableStateOf(false) }
+    var kpiCentralTapCount by remember { mutableStateOf(0) }
+    var kpiCentralLastTapTime by remember { mutableStateOf(0L) }
+    val scale by animateFloatAsState(
+        targetValue = if (dataAppeared) 1f else 0.98f,
+        animationSpec = spring(dampingRatio = 0.85f, stiffness = 400f),
+        label = "kpi_scale"
+    )
+    val alpha by animateFloatAsState(
+        targetValue = if (dataAppeared) 1f else 0f,
+        animationSpec = spring(dampingRatio = 0.85f, stiffness = 400f),
+        label = "kpi_alpha"
+    )
+
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .scale(scale)
+            .graphicsLayer { this.alpha = alpha },
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
         shape = RoundedCornerShape(16.dp)
     ) {
@@ -346,30 +436,88 @@ private fun KpiCardsSection(
                 .padding(20.dp),
             horizontalArrangement = Arrangement.spacedBy(20.dp)
         ) {
-        // Esami sostenuti
-        KpiCard(
-            title = "Esami\nsostenuti",
-            value = passedExams.toString(),
-            emphasizeGlow = false,
-            modifier = Modifier.weight(1f)
-        )
-        
-        // Esami mancanti (con glow quando completato)
-        KpiCard(
-            title = "Esami\nmancanti",
-            value = missingExams.toString(),
-            emphasizeGlow = true,
-            isComplete = missingExams == 0 && totalExams > 0,
-            modifier = Modifier.weight(1f)
-        )
-        
-        // CFA acquisiti
-        KpiCard(
-            title = "CFA \nacquisiti",
-            value = cfaEarned.toString(),
-            emphasizeGlow = false,
-            modifier = Modifier.weight(1f)
-        )
+            // Esami sostenuti (haptic on tap)
+            KpiCard(
+                title = "Esami\nsostenuti",
+                value = passedExams.toString(),
+                emphasizeGlow = false,
+                modifier = Modifier
+                    .weight(1f)
+                    .clickable {
+                        view.performHapticFeedback(HapticFeedbackConstantsCompat.LONG_PRESS)
+                    }
+            )
+
+            // Esami mancanti: easter egg (10 tap rapidi) + haptic
+            KpiCard(
+                title = "Esami\nmancanti",
+                value = missingExams.toString(),
+                emphasizeGlow = true,
+                isComplete = missingExams == 0 && totalExams > 0,
+                modifier = Modifier
+                    .weight(1f)
+                    .clickable {
+                        val now = System.currentTimeMillis()
+                        if (kpiCentralLastTapTime > 0L && now - kpiCentralLastTapTime > 2000) {
+                            kpiCentralTapCount = 1
+                        } else {
+                            kpiCentralTapCount += 1
+                        }
+                        kpiCentralLastTapTime = now
+                        if (kpiCentralTapCount >= 10) {
+                            kpiCentralTapCount = 0
+                            showExamsEasterEggSheet = true
+                            view.performHapticFeedback(HapticFeedbackConstantsCompat.CONFIRM)
+                            return@clickable
+                        }
+                        view.performHapticFeedback(HapticFeedbackConstantsCompat.LONG_PRESS)
+                    }
+            )
+
+            // CFA acquisiti (haptic on tap)
+            KpiCard(
+                title = "CFA \nacquisiti",
+                value = cfaEarned.toString(),
+                emphasizeGlow = false,
+                modifier = Modifier
+                    .weight(1f)
+                    .clickable {
+                        view.performHapticFeedback(HapticFeedbackConstantsCompat.LONG_PRESS)
+                    }
+            )
+        }
+    }
+
+    // Easter egg: sheet con elenco esami (identico a iOS)
+    if (showExamsEasterEggSheet) {
+        ModalBottomSheet(
+            onDismissRequest = { showExamsEasterEggSheet = false },
+            containerColor = MaterialTheme.colorScheme.surface
+        ) {
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp)
+                    .heightIn(max = 400.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                item {
+                    Text(
+                        "I tuoi esami",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
+                }
+                items(allExams) { exam ->
+                    Text(
+                        text = "${exam.corso}${exam.voto?.takeIf { it.isNotBlank() }?.let { " — $it" } ?: ""}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
         }
     }
 }
@@ -684,7 +832,7 @@ private fun LessonsTodayCard(lessons: List<LessonUi>) {
                     tint = MaterialTheme.colorScheme.primary
                 )
                 Text(
-                    text = "Le tue lezioni",
+                    text = "Lezioni di oggi",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold
                 )
@@ -793,7 +941,7 @@ private fun LessonRow(lesson: LessonUi) {
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                lesson.room?.let { room ->
+                lesson.room?.let { room: String ->
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(4.dp)
@@ -1537,7 +1685,15 @@ private fun BookedExamRow(
                 style = MaterialTheme.typography.bodyLarge,
                 fontWeight = FontWeight.Medium
             )
-            
+            // Data esame (sostenutoIl o dataRichiesta) - formattazione come iOS
+            val examDateStr = formatExamDateForDisplay(exam.data ?: exam.dataRichiesta)
+            if (examDateStr != null) {
+                Text(
+                    text = examDateStr,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
             exam.docente?.let { docente ->
                 if (docente.isNotEmpty()) {
                     Row(
@@ -1576,6 +1732,30 @@ private fun prettifyTitle(title: String): String {
 }
 
 /**
+ * Formatta la data esame per display (identico a iOS - formato "d MMM" o "EEE d MMM" in italiano).
+ */
+private fun formatExamDateForDisplay(dateStr: String?): String? {
+    if (dateStr.isNullOrBlank()) return null
+    return try {
+        val inputFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US)
+        inputFormat.timeZone = java.util.TimeZone.getTimeZone("Europe/Rome")
+        val parsed = inputFormat.parse(dateStr) ?: return null
+        val outputFormat = SimpleDateFormat("d MMM", Locale("it", "IT"))
+        outputFormat.timeZone = java.util.TimeZone.getTimeZone("Europe/Rome")
+        outputFormat.format(parsed)
+    } catch (e: Exception) {
+        try {
+            val inputFormat = SimpleDateFormat("yyyy-MM-dd", Locale.US)
+            val parsed = inputFormat.parse(dateStr) ?: return null
+            val outputFormat = SimpleDateFormat("d MMM", Locale("it", "IT"))
+            outputFormat.format(parsed)
+        } catch (e2: Exception) {
+            null
+        }
+    }
+}
+
+/**
  * Helper: estrae solo i cognomi dal nome del docente (identico a iOS surnamesOnly)
  */
 private fun surnamesOnly(docente: String): String {
@@ -1598,12 +1778,12 @@ private fun AnimatedGlowBackground(
     val primaryColor = MaterialTheme.colorScheme.primary
     Canvas(modifier = modifier) {
         if (isActive) {
-            drawAnimatedGradient(size, phase, primaryColor)
+            drawGlowGradient(size, phase, primaryColor)
         }
     }
 }
 
-private fun DrawScope.drawAnimatedGradient(size: Size, phase: Float, primaryColor: Color) {
+private fun DrawScope.drawGlowGradient(size: Size, phase: Float, primaryColor: Color) {
     val spotsCount = 6
     val seeds = listOf(123f, 456f, 789f, 321f, 654f, 987f)
     
@@ -1631,55 +1811,5 @@ private fun DrawScope.drawAnimatedGradient(size: Size, phase: Float, primaryColo
             center = center,
             radius = radius
         )
-    }
-}
-
-// MARK: - Data Classes
-data class LessonUi(
-    val title: String,
-    val time: String,
-    val room: String?,
-    val teacher: String?,
-    val date: String, // AGGIUNTO: data per il giorno
-    val isNow: Boolean = false
-)
-
-data class YearProgress(
-    val year1: Double = 0.0,
-    val year1Total: Int = 0,
-    val year1Missing: Int = 0,
-    val year2: Double = 0.0,
-    val year2Total: Int = 0,
-    val year2Missing: Int = 0,
-    val year3: Double = 0.0,
-    val year3Total: Int = 0,
-    val year3Missing: Int = 0
-) {
-    fun getProgressForYear(year: Int): Double {
-        return when (year) {
-            1 -> year1
-            2 -> year2
-            3 -> year3
-            else -> 0.0
-        }
-    }
-    
-    @Suppress("UNUSED_FUNCTION")
-    fun getTotalForYear(year: Int): Int {
-        return when (year) {
-            1 -> year1Total
-            2 -> year2Total
-            3 -> year3Total
-            else -> 0
-        }
-    }
-    
-    fun getMissingForYear(year: Int): Int {
-        return when (year) {
-            1 -> year1Missing
-            2 -> year2Missing
-            3 -> year3Missing
-            else -> 0
-        }
     }
 }

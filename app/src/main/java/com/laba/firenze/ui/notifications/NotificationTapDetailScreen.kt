@@ -7,6 +7,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.outlined.MarkEmailUnread
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -35,7 +37,7 @@ fun NotificationTapDetailScreen(
         navController.navigateUp()
     }
     
-    payload?.let { p ->
+        payload?.let { p ->
         Scaffold(
             topBar = {
                 TopAppBar(
@@ -46,6 +48,21 @@ fun NotificationTapDetailScreen(
                             navController.navigateUp()
                         }) {
                             Icon(Icons.AutoMirrored.Filled.ArrowBack, "Indietro")
+                        }
+                    },
+                    actions = {
+                        // Pulsanti Letta/Da leggere (come iOS 5.3.2)
+                        IconButton(onClick = {
+                            mainViewModel.clearPendingNotificationTap()
+                            navController.navigateUp()
+                        }) {
+                            Icon(Icons.Default.CheckCircle, contentDescription = "Segna letta")
+                        }
+                        IconButton(onClick = {
+                            mainViewModel.clearPendingNotificationTap()
+                            navController.navigateUp()
+                        }) {
+                            Icon(Icons.Outlined.MarkEmailUnread, contentDescription = "Da leggere")
                         }
                     }
                 )
