@@ -38,7 +38,7 @@ class GestionaleRepository @Inject constructor(
     val user: StateFlow<GestionaleUser?> = _user.asStateFlow()
     
     val isAuthenticated: Boolean
-        get() = _token.value.isNotEmpty()
+        get() = !_token.value.isNullOrEmpty()
     
     private fun loadUserFromPrefs(): GestionaleUser? {
         val json = prefs.getString(KEY_USER, null) ?: return null

@@ -133,7 +133,6 @@ fun HomeScreen(
                         missingExams = uiState.missingExamsCount,
                         cfaEarned = uiState.cfaEarned,
                         totalExams = uiState.totalExamsCount,
-                        allExams = allExams,
                         dataAppeared = dataAppeared
                     )
                 }
@@ -404,13 +403,9 @@ private fun KpiCardsSection(
     missingExams: Int,
     cfaEarned: Int,
     totalExams: Int,
-    allExams: List<Esame> = emptyList(),
     dataAppeared: Boolean = true
 ) {
     val view = LocalView.current
-    var showExamsEasterEggSheet by remember { mutableStateOf(false) }
-    var kpiCentralTapCount by remember { mutableStateOf(0) }
-    var kpiCentralLastTapTime by remember { mutableStateOf(0L) }
     val scale by animateFloatAsState(
         targetValue = if (dataAppeared) 1f else 0.98f,
         animationSpec = spring(dampingRatio = 0.85f, stiffness = 400f),
@@ -448,7 +443,7 @@ private fun KpiCardsSection(
                     }
             )
 
-            // Esami mancanti: easter egg (10 tap rapidi) + haptic
+            // Esami mancanti (haptic on tap)
             KpiCard(
                 title = "Esami\nmancanti",
                 value = missingExams.toString(),
@@ -457,19 +452,6 @@ private fun KpiCardsSection(
                 modifier = Modifier
                     .weight(1f)
                     .clickable {
-                        val now = System.currentTimeMillis()
-                        if (kpiCentralLastTapTime > 0L && now - kpiCentralLastTapTime > 2000) {
-                            kpiCentralTapCount = 1
-                        } else {
-                            kpiCentralTapCount += 1
-                        }
-                        kpiCentralLastTapTime = now
-                        if (kpiCentralTapCount >= 10) {
-                            kpiCentralTapCount = 0
-                            showExamsEasterEggSheet = true
-                            view.performHapticFeedback(HapticFeedbackConstantsCompat.CONFIRM)
-                            return@clickable
-                        }
                         view.performHapticFeedback(HapticFeedbackConstantsCompat.LONG_PRESS)
                     }
             )
@@ -485,39 +467,6 @@ private fun KpiCardsSection(
                         view.performHapticFeedback(HapticFeedbackConstantsCompat.LONG_PRESS)
                     }
             )
-        }
-    }
-
-    // Easter egg: sheet con elenco esami (identico a iOS)
-    if (showExamsEasterEggSheet) {
-        ModalBottomSheet(
-            onDismissRequest = { showExamsEasterEggSheet = false },
-            containerColor = MaterialTheme.colorScheme.surface
-        ) {
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp)
-                    .heightIn(max = 400.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                item {
-                    Text(
-                        "I tuoi esami",
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(bottom = 8.dp)
-                    )
-                }
-                items(allExams) { exam ->
-                    Text(
-                        text = "${exam.corso}${exam.voto?.takeIf { it.isNotBlank() }?.let { " — $it" } ?: ""}",
-                        style = MaterialTheme.typography.bodyMedium,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-            }
         }
     }
 }

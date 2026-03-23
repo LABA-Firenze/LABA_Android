@@ -146,10 +146,24 @@ class MainActivityViewModel @Inject constructor(
         _authState.value = _authState.value.copy(errorMessage = null)
     }
     
+    /** Skip primo ON_RESUME: l'init gestisce già cold start (restore + forceLogoutIfExpired). */
+    private var hasHandledFirstResume = false
+    /** Debounce: evita loop di "Aggiornamento in corso" quando ON_RESUME fire multiple volte. */
+    private var lastAppResumedAt = 0L
+    private val appResumedDebounceMs = 5000L
+    
     /**
      * Chiamare quando l'app torna in foreground (identico a iOS handleSceneBecameActive).
      */
     fun onAppResumed() {
+        if (!hasHandledFirstResume) {
+            hasHandledFirstResume = true
+            return // Cold start gestito dall'init
+        }
+        val now = System.currentTimeMillis()
+        if (now - lastAppResumedAt < appResumedDebounceMs) return
+        lastAppResumedAt = now
+        
         viewModelScope.launch {
             try {
                 sessionRepository.handleAppResumed()

@@ -26,6 +26,11 @@ class AuthRetryInterceptor @Inject constructor(
             return chain.proceed(request)
         }
 
+        // Supabase usa apikey propria: un 401 non si risolve con refresh LogosUni
+        if (request.url.host?.contains("supabase.co") == true) {
+            return chain.proceed(request)
+        }
+
         // Se è già un retry, non ritentare
         if (request.tag(RetryTag::class.java) != null) {
             return chain.proceed(request)

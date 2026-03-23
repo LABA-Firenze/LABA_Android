@@ -23,6 +23,12 @@ class AuthHeaderInterceptor @Inject constructor(
             return chain.proceed(originalRequest)
         }
         
+        // Supabase usa la propria apikey/Bearer (anon key), non il token LogosUni.
+        // Evitare di sovrascrivere l'header Authorization impostato da SupabaseRepository.
+        if (originalRequest.url.host?.contains("supabase.co") == true) {
+            return chain.proceed(originalRequest)
+        }
+        
         val accessToken = tokenStore.getCurrentAccessToken()
         
         return if (accessToken.isNotEmpty()) {
