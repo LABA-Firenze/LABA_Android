@@ -4,22 +4,26 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.laba.firenze.data.NotificationCategory
 import com.laba.firenze.data.TopicManager
+import com.laba.firenze.data.gamification.AchievementManager
 import com.laba.firenze.data.repository.SessionRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @HiltViewModel
 class NotificationSettingsViewModel @Inject constructor(
     private val topicManager: TopicManager,
-    private val sessionRepository: SessionRepository
+    private val sessionRepository: SessionRepository,
+    private val achievementManager: AchievementManager
 ) : ViewModel() {
     
     data class NotificationSettingsState(
         val notificationsEnabled: Boolean = true,
-        val categoriesEnabled: Map<NotificationCategory, Boolean> = NotificationCategory.values().associateWith { true }
+        val categoriesEnabled: Map<NotificationCategory, Boolean> = NotificationCategory.values().associateWith { true },
+        val achievementNotificationsEnabled: Boolean = false
     )
     
     private val _uiState = MutableStateFlow(NotificationSettingsState())
@@ -33,12 +37,13 @@ class NotificationSettingsViewModel @Inject constructor(
         viewModelScope.launch {
             val enabled = topicManager.isNotificationsEnabled()
             val categories = NotificationCategory.values().associateWith { category ->
-                topicManager.isCategoryEnabled(category)
+                topicManager.getCategoryPreference(category)
             }
-            
+            val achNotif = achievementManager.notificationsEnabled.first()
             _uiState.value = NotificationSettingsState(
                 notificationsEnabled = enabled,
-                categoriesEnabled = categories
+                categoriesEnabled = categories,
+                achievementNotificationsEnabled = achNotif
             )
         }
     }
@@ -47,6 +52,7 @@ class NotificationSettingsViewModel @Inject constructor(
         viewModelScope.launch {
             topicManager.setNotificationsEnabled(enabled)
             _uiState.value = _uiState.value.copy(notificationsEnabled = enabled)
+            updateFCMTopics()
         }
     }
     
@@ -56,10 +62,13 @@ class NotificationSettingsViewModel @Inject constructor(
             val newCategories = _uiState.value.categoriesEnabled.toMutableMap()
             newCategories[category] = enabled
             _uiState.value = _uiState.value.copy(categoriesEnabled = newCategories)
-            
-            // Re-update FCM topics when category preference changes
             updateFCMTopics()
         }
+    }
+
+    fun setAchievementNotificationsEnabled(enabled: Boolean) {
+        achievementManager.toggleNotifications(enabled)
+        _uiState.value = _uiState.value.copy(achievementNotificationsEnabled = enabled)
     }
     
     /**

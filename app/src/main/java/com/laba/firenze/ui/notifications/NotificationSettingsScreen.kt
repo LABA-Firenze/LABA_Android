@@ -2,7 +2,6 @@ package com.laba.firenze.ui.notifications
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
@@ -22,10 +21,11 @@ fun NotificationSettingsScreen(
     viewModel: NotificationSettingsViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    
+
     Scaffold(
         topBar = {
             TopAppBar(
+                windowInsets = WindowInsets(0, 0, 0, 0),
                 title = { Text("Notifiche") },
                 navigationIcon = {
                     IconButton(onClick = { navController.navigateUp() }) {
@@ -39,44 +39,48 @@ fun NotificationSettingsScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues),
-            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 140.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 0.dp, bottom = 100.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-                // Main toggle
-                item {
-                    NotificationSection(
-                        title = "Notifiche app"
-                    ) {
-                        NotificationToggleItem(
-                            checked = uiState.notificationsEnabled,
-                            onCheckedChange = viewModel::setNotificationsEnabled,
-                            title = "Abilita tutte le notifiche",
-                            icon = Icons.Default.Notifications
-                        )
-                        
-                        // Category toggles
-                        if (uiState.notificationsEnabled) {
-                            NotificationCategory.entries.forEach { category ->
-                                NotificationToggleItem(
-                                    checked = viewModel.getCategoryEnabled(category),
-                                    onCheckedChange = { enabled ->
-                                        viewModel.setCategoryEnabled(category, enabled)
-                                    },
-                                    title = category.displayName,
-                                    icon = getIconForCategory(category)
-                                )
-                            }
-                            
-                            // Warning footer
-                            Text(
-                                text = "Disattivando le categorie singole potresti non ricevere comunicazioni importanti come assenze docenti o comunicazioni da professori. Anche se permesso per la privacy policy, è fortemente sconsigliato disattivarle.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+            // 1. Notifiche app (come iOS)
+            item {
+                NotificationSection(
+                    title = "Notifiche app",
+                    footer = "Disattivando le notifiche non riceverai le relative comunicazioni dall'Accademia. La responsabilità di restare informato è tua."
+                ) {
+                    NotificationToggleItem(
+                        checked = uiState.notificationsEnabled,
+                        onCheckedChange = viewModel::setNotificationsEnabled,
+                        title = "Abilita tutte le notifiche",
+                        icon = Icons.Default.Notifications
+                    )
+                    if (!uiState.notificationsEnabled) {
+                        NotificationCategory.entries.forEach { category ->
+                            NotificationToggleItem(
+                                checked = uiState.categoriesEnabled[category] == true,
+                                onCheckedChange = { viewModel.setCategoryEnabled(category, it) },
+                                title = category.displayName,
+                                icon = getIconForCategory(category)
                             )
                         }
                     }
                 }
+            }
+
+            // 2. Vita in LABA – Traguardi
+            item {
+                NotificationSection(
+                    title = "Vita in LABA",
+                    footer = "Notifiche sui punti traguardo e obiettivi."
+                ) {
+                    NotificationToggleItem(
+                        checked = uiState.achievementNotificationsEnabled,
+                        onCheckedChange = viewModel::setAchievementNotificationsEnabled,
+                        title = "Traguardi",
+                        icon = Icons.Default.EmojiEvents
+                    )
+                }
+            }
         }
     }
 }
@@ -84,11 +88,12 @@ fun NotificationSettingsScreen(
 @Composable
 fun NotificationSection(
     title: String,
+    footer: String? = null,
     content: @Composable ColumnScope.() -> Unit
 ) {
     Column(
         modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Text(
             text = title,
@@ -96,7 +101,6 @@ fun NotificationSection(
             color = MaterialTheme.colorScheme.primary,
             modifier = Modifier.padding(horizontal = 4.dp)
         )
-        
         Card(
             modifier = Modifier.fillMaxWidth(),
             colors = CardDefaults.cardColors(
@@ -106,6 +110,14 @@ fun NotificationSection(
             Column(modifier = Modifier.padding(8.dp)) {
                 content()
             }
+        }
+        if (footer != null) {
+            Text(
+                text = footer,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 4.dp)
+            )
         }
     }
 }
@@ -147,16 +159,8 @@ fun NotificationToggleItem(
     }
 }
 
-fun getIconForCategory(category: NotificationCategory): androidx.compose.ui.graphics.vector.ImageVector {
-    return when (category) {
-        NotificationCategory.EXAMS -> Icons.Default.Description
-        NotificationCategory.GRADES -> Icons.Default.Numbers
-        NotificationCategory.ABSENCES -> Icons.Default.PersonRemove
-        NotificationCategory.PROFESSORS -> Icons.Default.Person
-        NotificationCategory.MATERIALS -> Icons.Default.Folder
-        NotificationCategory.SEMINARS -> Icons.Default.Book
-        NotificationCategory.EVENTS -> Icons.Default.Event
-        NotificationCategory.GENERAL -> Icons.Default.ChatBubble
-    }
+private fun getIconForCategory(category: NotificationCategory): androidx.compose.ui.graphics.vector.ImageVector = when (category) {
+    NotificationCategory.GENERAL -> Icons.Default.ChatBubble
+    NotificationCategory.MATERIALS -> Icons.Default.Folder
+    NotificationCategory.ABSENCES -> Icons.Default.PersonRemove
 }
-

@@ -488,7 +488,6 @@ private fun TutorialProfilePhotoSetup(
 private fun TutorialBetaFeatures(sharedPrefs: android.content.SharedPreferences) {
     var timetableEnabled by remember { mutableStateOf(sharedPrefs.getBoolean("laba.timetable.enabled", false)) }
     var achievementsEnabled by remember { mutableStateOf(sharedPrefs.getBoolean("laba.achievements.enabled", false)) }
-    var minigamesEnabled by remember { mutableStateOf(sharedPrefs.getBoolean("laba.minigames.enabled", true)) }
     
     Column(
         modifier = Modifier
@@ -514,16 +513,6 @@ private fun TutorialBetaFeatures(sharedPrefs: android.content.SharedPreferences)
             onCheckedChange = {
                 achievementsEnabled = it
                 sharedPrefs.edit().putBoolean("laba.achievements.enabled", it).apply()
-            }
-        )
-        TutorialBetaToggle(
-            icon = "game",
-            title = "Minigiochi",
-            description = "LABArola, classifiche",
-            isOn = minigamesEnabled,
-            onCheckedChange = {
-                minigamesEnabled = it
-                sharedPrefs.edit().putBoolean("laba.minigames.enabled", it).apply()
             }
         )
     }

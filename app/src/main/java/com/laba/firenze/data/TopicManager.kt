@@ -84,9 +84,11 @@ class TopicManager @Inject constructor(
     }
     
     /**
-     * Check if a notification category is enabled
+     * Check if a notification category is enabled (come iOS: se notifications.enabled=true tutte on;
+     * altrimenti usa la pref per-categoria)
      */
     fun isCategoryEnabled(category: NotificationCategory): Boolean {
+        if (isNotificationsEnabled()) return true
         return prefs.getBoolean(category.preferenceKey, true)
     }
     
@@ -95,6 +97,13 @@ class TopicManager @Inject constructor(
      */
     fun setCategoryEnabled(category: NotificationCategory, enabled: Boolean) {
         prefs.edit().putBoolean(category.preferenceKey, enabled).apply()
+    }
+
+    /**
+     * Preferenza grezza per-categoria (per UI quando notificationsEnabled=false)
+     */
+    fun getCategoryPreference(category: NotificationCategory): Boolean {
+        return prefs.getBoolean(category.preferenceKey, true)
     }
     
     /**
@@ -214,16 +223,19 @@ class TopicManager @Inject constructor(
     }
     
     /**
-     * Convert course name to code (e.g., "Grafica Digitale" -> "GD")
+     * Mappa piano studi -> sigla corso (identico a iOS TopicAssegnato.indirizzoCode)
      */
     private fun getCourseCode(course: String): String? {
+        val ps = course.lowercase()
         return when {
-            course.contains("Grafica Digitale", ignoreCase = true) -> "GD"
-            course.contains("Fotografia", ignoreCase = true) -> "FO"
-            course.contains("Video", ignoreCase = true) -> "VI"
-            course.contains("Pittura", ignoreCase = true) -> "PI"
-            course.contains("Scultura", ignoreCase = true) -> "SC"
-            course.contains("Pittura", ignoreCase = true) -> "PI"
+            ps.contains("interior") -> "INT"
+            ps.contains("cinema") || ps.contains("audiovisiv") -> "CINEMA"
+            ps.contains("graphic") || ps.contains("multimedia") || ps.contains("grafica") -> "GD"
+            ps.contains("fotografia") || ps.contains("photo") -> "FOTO"
+            ps.contains("fashion") -> "FD"
+            ps.contains("pittura") || ps.contains("painting") -> "PIT"
+            ps.contains("regia") || ps.contains("videomaking") || ps.contains("regia e video") -> "REGIA"
+            ps.contains("design") -> "DES"
             else -> null
         }
     }

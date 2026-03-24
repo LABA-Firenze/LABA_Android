@@ -1,19 +1,18 @@
 package com.laba.firenze.data
 
+/**
+ * Categorie notifiche app (identico a iOS: solo quelle con topic FCM).
+ * generali, materiali, assenze.
+ */
 enum class NotificationCategory(
     val value: String,
     val displayName: String,
     val preferenceKey: String
 ) {
-    EXAMS("esami", "Esami", "notifications.exams"),
-    PROFESSORS("comunicazioni", "Comunicazioni dai docenti", "notifications.professors"),
     GENERAL("generali", "Comunicazioni generali", "notifications.general"),
-    EVENTS("eventi_laba", "Eventi LABA", "notifications.events"),
-    SEMINARS("seminari", "Attività", "notifications.seminars"),
-    GRADES("voti", "Voti", "notifications.grades"),
-    MATERIALS("materiali", "Dispense e materiali", "notifications.materials"),
-    ABSENCES("assenze", "Assenze docenti", "notifications.absences");
-    
+    MATERIALS("materiali", "Materiali e dispense", "notifications.materials"),
+    ABSENCES("assenze", "Assenze e cambi aula", "notifications.absences");
+
     val topicSuffix: String get() = value
 }
 

@@ -315,9 +315,9 @@ fun ProfileScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .padding(start = 20.dp, end = 20.dp, top = 16.dp, bottom = 20.dp),
-            verticalArrangement = Arrangement.spacedBy(24.dp),
-            contentPadding = PaddingValues(bottom = 120.dp)
+                .padding(horizontal = 20.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+            contentPadding = PaddingValues(top = 0.dp, bottom = 100.dp)
         ) {
         // Profile Header
         item {
@@ -383,7 +383,7 @@ fun ProfileScreen(
             )
         }
         
-        // Attività Section (come iOS: Sessione studio, Registratore lezioni – senza minigiochi)
+        // Attività Section (Sessione studio, Registratore lezioni)
         item {
             ProfileSection(
                 title = "Attività",
@@ -441,7 +441,7 @@ fun ProfileScreen(
                     ),
                     ProfileMenuActionItem(
                         title = "Aspetto",
-                        icon = Icons.Default.Palette,
+                        icon = Icons.Default.Brush,
                         onClick = { 
                             navController.navigate("appearance") {
                                 launchSingleTop = true
@@ -1181,7 +1181,7 @@ private fun ProfileSection(
     footer: String? = null
 ) {
     Column(
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Text(
             text = title,
@@ -1191,7 +1191,7 @@ private fun ProfileSection(
         )
         
         Column(
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             items.forEach { item ->
                 ProfileMenuItem(item = item)

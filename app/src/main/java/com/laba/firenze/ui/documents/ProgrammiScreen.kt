@@ -138,9 +138,10 @@ fun ProgrammiScreen(
                     } else {
                         val queryLower = searchQuery.lowercase().trim()
                         programDocs.filter { doc ->
-                            prettifyTitle(doc.titolo).lowercase().contains(queryLower) ||
+                            doc.effectiveTitle().lowercase().contains(queryLower) ||
                             (doc.descrizione?.lowercase()?.contains(queryLower) == true) ||
-                            (doc.tipo?.lowercase()?.contains(queryLower) == true)
+                            (doc.tipo?.lowercase()?.contains(queryLower) == true) ||
+                            (doc.corso?.lowercase()?.contains(queryLower) == true)
                         }
                     }
                     
@@ -196,24 +197,54 @@ fun ProgrammiScreen(
                                         fontWeight = FontWeight.Bold
                                     )
                                     Text(
-                                        text = "Qui trovi i programmi dei corsi: obiettivi, contenuti, modalità d'esame e bibliografia. I documenti sono aggiornati dai docenti/Segreteria.",
+                                        text = "${filteredDocs.size} programmi disponibili",
                                         style = MaterialTheme.typography.bodyMedium,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        textAlign = TextAlign.Center
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
+                                    // Info banner (come iOS)
+                                    Card(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        colors = CardDefaults.cardColors(
+                                            containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
+                                        )
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.padding(12.dp),
+                                            verticalAlignment = Alignment.Top,
+                                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                        ) {
+                                            Icon(
+                                                Icons.Default.Info,
+                                                contentDescription = null,
+                                                modifier = Modifier.size(20.dp),
+                                                tint = MaterialTheme.colorScheme.primary
+                                            )
+                                            Text(
+                                                text = "Qui trovi i programmi dei corsi: obiettivi, contenuti, modalità d'esame e bibliografia. I documenti sono aggiornati dai docenti/Segreteria.",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                    }
                                 }
                             }
                             
-                            // Documents list - flat list like iOS, sorted by course name
-                            val sortedDocs = filteredDocs.sortedBy { prettifyTitle(it.titolo) }
+                            // Lista piatta ordinata per materia e ordine (come iOS flatDocs)
+                            val sortedDocs = filteredDocs
+                                .filter { (it.effectiveOid() != null) || (it.url?.startsWith("http") == true) }
+                                .sortedWith(
+                                    compareBy<LogosDoc> { prettifyTitle(it.corso ?: it.effectiveTitle()) }
+                                        .thenBy { it.ordine ?: 0 }
+                                )
                             items(sortedDocs) { doc ->
+                                val oidOrPlaceholder = doc.effectiveOid() ?: "_"
                                 DocumentListItem(
                                     document = doc,
                                     onClick = {
                                         try {
-                                            val encodedTitle = Uri.encode(prettifyTitle(doc.titolo))
+                                            val encodedTitle = Uri.encode(prettifyTitle(doc.effectiveTitle()))
                                             val directUrlParam = doc.url?.takeIf { it.startsWith("http") }?.let { Uri.encode(it) } ?: "_"
-                                            navController.navigate("document_viewer/${doc.oid}/$encodedTitle/$directUrlParam")
+                                            navController.navigate("document_viewer/$oidOrPlaceholder/$encodedTitle/$directUrlParam")
                                         } catch (e: Exception) {
                                             println("ProgrammiScreen: Error navigating to document viewer: ${e.message}")
                                         }
@@ -248,7 +279,7 @@ private fun DocumentListItem(
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Text(
-                text = prettifyTitle(document.titolo),
+                text = prettifyTitle(document.effectiveTitle()),
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold,
                 modifier = Modifier.weight(1f)
@@ -271,6 +302,7 @@ private fun isProgramDoc(doc: LogosDoc): Boolean {
     val haystack = listOf(
         doc.tipo ?: "",
         doc.descrizione ?: "",
+        doc.corso ?: "",
         doc.url ?: ""
     ).joinToString(" ").lowercase()
     

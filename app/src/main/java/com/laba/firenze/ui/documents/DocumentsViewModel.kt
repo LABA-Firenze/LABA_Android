@@ -64,8 +64,10 @@ class DocumentsViewModel @Inject constructor(
         }
     }
     
-    fun trackDispenseOpen(dispenseId: String) {
-        achievementManager.trackDispenseOpen(dispenseId)
+    fun trackDispenseOpen(dispenseId: String?) {
+        if (!dispenseId.isNullOrBlank()) {
+            achievementManager.trackDispenseOpen(dispenseId)
+        }
     }
 }
 

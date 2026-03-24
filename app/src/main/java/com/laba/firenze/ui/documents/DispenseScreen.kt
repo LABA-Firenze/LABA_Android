@@ -1,5 +1,8 @@
 package com.laba.firenze.ui.documents
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -137,13 +140,31 @@ fun DispenseScreen(
                     } else {
                         val queryLower = searchQuery.lowercase().trim()
                         dispensaDocs.filter { doc ->
-                            prettifyTitle(doc.titolo).lowercase().contains(queryLower) ||
+                            doc.effectiveTitle().lowercase().contains(queryLower) ||
                             (doc.descrizione?.lowercase()?.contains(queryLower) == true) ||
-                            (doc.tipo?.lowercase()?.contains(queryLower) == true)
+                            (doc.tipo?.lowercase()?.contains(queryLower) == true) ||
+                            (doc.corso?.lowercase()?.contains(queryLower) == true)
+                        }
+                    }
+                    // Raggruppa per corso (come iOS): [(corso, items)]
+                    val grouped = filteredDocs
+                        .filter { (it.effectiveOid() != null) || (it.url?.startsWith("http") == true) }
+                        .groupBy { it.corso?.takeIf { c -> c.isNotBlank() } ?: "Altro" }
+                        .map { (course, items) ->
+                            course to items.sortedWith(
+                                compareBy<LogosDoc> { it.ordine ?: 0 }
+                                    .thenBy { it.descrizione ?: "" }
+                            )
+                        }
+                        .sortedBy { (course, _) -> course.lowercase() }
+                    var expandedCourses by remember { mutableStateOf(setOf<String>()) }
+                    LaunchedEffect(grouped.size) {
+                        if (grouped.isNotEmpty() && expandedCourses.isEmpty()) {
+                            expandedCourses = grouped.map { it.first }.toSet()
                         }
                     }
                     
-                    if (filteredDocs.isEmpty()) {
+                    if (grouped.isEmpty()) {
                         Box(
                             modifier = Modifier.fillMaxSize(),
                             contentAlignment = Alignment.Center
@@ -195,12 +216,35 @@ fun DispenseScreen(
                                         fontWeight = FontWeight.Bold
                                     )
                                     Text(
-                                        text = "Materiali caricati e condivisi dai docenti come PDF, slide o riferimenti didattici.",
+                                        text = "${filteredDocs.size} documenti disponibili",
                                         style = MaterialTheme.typography.bodyMedium,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        textAlign = TextAlign.Center
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
-                                    
+                                    // Info banner (come iOS)
+                                    Card(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        colors = CardDefaults.cardColors(
+                                            containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
+                                        )
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.padding(12.dp),
+                                            verticalAlignment = Alignment.Top,
+                                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                        ) {
+                                            Icon(
+                                                Icons.Default.Info,
+                                                contentDescription = null,
+                                                modifier = Modifier.size(20.dp),
+                                                tint = MaterialTheme.colorScheme.primary
+                                            )
+                                            Text(
+                                                text = "Materiali caricati e condivisi dai docenti come PDF, slide o riferimenti didattici.",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                    }
                                     // Warning about external platforms
                                     Card(
                                         modifier = Modifier.fillMaxWidth(),
@@ -229,27 +273,46 @@ fun DispenseScreen(
                                 }
                             }
                             
-                            // Documents list - flat list like Programmi
-                            val sortedDocs = filteredDocs.sortedBy { it.descrizione ?: "" }
-                            items(sortedDocs) { doc ->
-                                DispensaListItem(
-                                    document = doc,
-                                    onClick = {
-                                        try {
-                                            viewModel.trackDispenseOpen(doc.oid)
-                                            val title = if (!doc.descrizione.isNullOrBlank()) {
-                                                doc.descrizione
+                            // Liste raggruppate per corso con sezioni espandibili (come iOS)
+                            grouped.forEach { (course, items) ->
+                                val isExpanded = expandedCourses.contains(course)
+                                item(key = "header_$course") {
+                                    DispenseSectionHeader(
+                                        courseName = course,
+                                        itemCount = items.size,
+                                        isExpanded = isExpanded,
+                                        onClick = {
+                                            expandedCourses = if (isExpanded) {
+                                                expandedCourses - course
                                             } else {
-                                                doc.tipo ?: "Dispensa"
+                                                expandedCourses + course
                                             }
-                                            val encodedTitle = Uri.encode(prettifyTitle(title))
-                                            val directUrlParam = doc.url?.takeIf { it.startsWith("http") }?.let { Uri.encode(it) } ?: "_"
-                                            navController.navigate("document_viewer/${doc.oid}/$encodedTitle/$directUrlParam")
-                                        } catch (e: Exception) {
-                                            println("DispenseScreen: Error navigating to document viewer: ${e.message}")
                                         }
+                                    )
+                                }
+                                if (isExpanded) {
+                                    items(
+                                        items = items,
+                                        key = { doc -> doc.effectiveOid() ?: doc.effectiveTitle().hashCode().toString() }
+                                    ) { doc ->
+                                        val oidOrPlaceholder = doc.effectiveOid() ?: "_"
+                                        DispensaListItem(
+                                            document = doc,
+                                            isNested = true,
+                                            onClick = {
+                                                try {
+                                                    viewModel.trackDispenseOpen(doc.effectiveOid())
+                                                    val docTitle = doc.descrizione?.takeIf { it.isNotBlank() } ?: doc.tipo ?: "Dispensa"
+                                                    val encodedTitle = Uri.encode(prettifyTitle(docTitle))
+                                                    val directUrlParam = doc.url?.takeIf { it.startsWith("http") }?.let { Uri.encode(it) } ?: "_"
+                                                    navController.navigate("document_viewer/$oidOrPlaceholder/$encodedTitle/$directUrlParam")
+                                                } catch (e: Exception) {
+                                                    println("DispenseScreen: Error navigating: ${e.message}")
+                                                }
+                                            }
+                                        )
                                     }
-                                )
+                                }
                             }
                         }
                     }
@@ -260,15 +323,68 @@ fun DispenseScreen(
 }
 
 @Composable
-private fun DispensaListItem(
-    document: LogosDoc,
+private fun DispenseSectionHeader(
+    courseName: String,
+    itemCount: Int,
+    isExpanded: Boolean,
     onClick: () -> Unit
 ) {
-    Card(
+    Surface(
         onClick = onClick,
         modifier = Modifier.fillMaxWidth(),
+        color = MaterialTheme.colorScheme.surface
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 12.dp, horizontal = 16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = Icons.Default.MenuBook,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary
+            )
+            Spacer(modifier = Modifier.width(12.dp))
+            Text(
+                text = prettifyTitle(courseName),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.weight(1f)
+            )
+            Text(
+                text = "$itemCount",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Icon(
+                imageVector = if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+@Composable
+private fun DispensaListItem(
+    document: LogosDoc,
+    isNested: Boolean = false,
+    onClick: () -> Unit
+) {
+    val label = if (isNested) {
+        document.descrizione?.takeIf { it.isNotBlank() } ?: document.tipo ?: "Dispensa"
+    } else {
+        document.effectiveTitle()
+    }
+    Card(
+        onClick = onClick,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = if (isNested) 24.dp else 0.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainer
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
         )
     ) {
         Row(
@@ -278,23 +394,17 @@ private fun DispensaListItem(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            val title = if (!document.descrizione.isNullOrBlank()) {
-                document.descrizione
-            } else {
-                document.tipo ?: "Dispensa"
-            }
-            
             Text(
-                text = prettifyTitle(title),
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
+                text = prettifyTitle(label),
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Medium,
                 modifier = Modifier.weight(1f)
             )
-            
             Icon(
                 imageVector = Icons.Default.ChevronRight,
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(20.dp)
             )
         }
     }
@@ -308,6 +418,7 @@ private fun isDispensaDoc(doc: LogosDoc): Boolean {
     val haystack = listOf(
         doc.tipo ?: "",
         doc.descrizione ?: "",
+        doc.corso ?: "",
         doc.url ?: ""
     ).joinToString(" ").lowercase()
     

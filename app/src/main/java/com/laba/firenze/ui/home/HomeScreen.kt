@@ -107,7 +107,7 @@ fun HomeScreen(
         contentPadding = PaddingValues(
             start = 20.dp, 
             end = 20.dp, 
-            top = 60.dp,
+            top = 16.dp,
             bottom = 140.dp
         ),
         verticalArrangement = Arrangement.spacedBy(24.dp)

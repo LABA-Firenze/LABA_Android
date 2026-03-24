@@ -51,99 +51,10 @@ fun AppearanceSettingsScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues),
-            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 120.dp),
-            verticalArrangement = Arrangement.spacedBy(24.dp)
+            contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 0.dp, bottom = 100.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Colori dell'applicazione
-            item {
-                Section(title = "Colori dell'applicazione") {
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { navController.navigate("color_settings") },
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceContainer
-                        ),
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        ListItem(
-                            headlineContent = { Text("Colori dell'applicazione") },
-                            leadingContent = {
-                                Icon(
-                                    Icons.Default.Palette,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.primary
-                                )
-                            },
-                            trailingContent = { Icon(Icons.Default.ChevronRight, null) },
-                            colors = ListItemDefaults.colors(
-                                containerColor = Color.Transparent
-                            )
-                        )
-                    }
-                }
-            }
-            
-            // Animazione di sfondo
-            item {
-                Section(title = "Animazione di sfondo") {
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { navController.navigate("animation_settings") },
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceContainer
-                        ),
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        ListItem(
-                            headlineContent = { Text("Animazione di sfondo") },
-                            leadingContent = {
-                                Icon(
-                                    Icons.Default.Waves,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.primary
-                                )
-                            },
-                            trailingContent = { Icon(Icons.Default.ChevronRight, null) },
-                            colors = ListItemDefaults.colors(
-                                containerColor = Color.Transparent
-                            )
-                        )
-                    }
-                }
-            }
-            
-            // Ordine sezioni Bacheca (Home)
-            item {
-                Section(title = "Bacheca") {
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { navController.navigate("home_section_order") },
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceContainer
-                        ),
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        ListItem(
-                            headlineContent = { Text("Ordine sezioni Bacheca") },
-                            supportingContent = { Text("Trascina per riordinare le sezioni nella Home", style = MaterialTheme.typography.bodySmall) },
-                            leadingContent = {
-                                Icon(
-                                    Icons.Default.Dashboard,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.primary
-                                )
-                            },
-                            trailingContent = { Icon(Icons.Default.ChevronRight, null) },
-                            colors = ListItemDefaults.colors(containerColor = Color.Transparent)
-                        )
-                    }
-                }
-            }
-            
-            // Personalizza barra di navigazione
+            // 1. Personalizza barra di navigazione (ordine come iOS)
             item {
                 Section(title = "Personalizza navigazione") {
                     Card(
@@ -172,7 +83,67 @@ fun AppearanceSettingsScreen(
                 }
             }
 
-            // Tema
+            // 2. Colori dell'applicazione
+            item {
+                Section(title = "Colori dell'applicazione") {
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { navController.navigate("color_settings") },
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceContainer
+                        ),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        ListItem(
+                            headlineContent = { Text("Colori dell'applicazione") },
+                            leadingContent = {
+                                Icon(
+                                    Icons.Default.Palette,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                            },
+                            trailingContent = { Icon(Icons.Default.ChevronRight, null) },
+                            colors = ListItemDefaults.colors(
+                                containerColor = Color.Transparent
+                            )
+                        )
+                    }
+                }
+            }
+
+            // 3. Animazione di sfondo
+            item {
+                Section(title = "Animazione di sfondo") {
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { navController.navigate("animation_settings") },
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceContainer
+                        ),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        ListItem(
+                            headlineContent = { Text("Animazione di sfondo") },
+                            leadingContent = {
+                                Icon(
+                                    Icons.Default.Waves,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                            },
+                            trailingContent = { Icon(Icons.Default.ChevronRight, null) },
+                            colors = ListItemDefaults.colors(
+                                containerColor = Color.Transparent
+                            )
+                        )
+                    }
+                }
+            }
+
+            // 4. Tema
             item {
                 Section(title = "Tema") {
                     ThemeRow(
@@ -196,7 +167,7 @@ private fun Section(
 ) {
     Column(
         modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Text(
             text = title,

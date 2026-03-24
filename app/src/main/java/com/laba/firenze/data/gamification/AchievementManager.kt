@@ -63,9 +63,7 @@ class AchievementManager @Inject constructor(
     @Suppress("UNUSED_VARIABLE")
     val showConfetti: StateFlow<Boolean> = _showConfetti.asStateFlow()
     
-    @Suppress("UNUSED_VARIABLE")
     private val _notificationsEnabled = MutableStateFlow(true)
-    @Suppress("UNUSED_VARIABLE")
     val notificationsEnabled: StateFlow<Boolean> = _notificationsEnabled.asStateFlow()
     
     private var firstLoadDone = false
@@ -89,6 +87,7 @@ class AchievementManager @Inject constructor(
     
     init {
         scope.launch {
+            loadAchievementNotificationsPref()
             // Carica prima gli achievement, poi le stats
             // Questo assicura che quando ricalcoliamo i punti, gli achievement siano già caricati
             loadAchievements()
@@ -107,6 +106,25 @@ class AchievementManager @Inject constructor(
     }
     
     // MARK: - Persistence
+
+    private val achievementNotificationsKey = booleanPreferencesKey("laba.achievements.notificationsEnabled")
+
+    private suspend fun loadAchievementNotificationsPref() {
+        val enabled = dataStore.data.first()[achievementNotificationsKey] ?: false
+        _notificationsEnabled.value = enabled
+    }
+
+    /**
+     * Toggle notifiche traguardi (identico a iOS AchievementManager.toggleNotifications)
+     */
+    fun toggleNotifications(enabled: Boolean) {
+        scope.launch {
+            _notificationsEnabled.value = enabled
+            dataStore.edit { prefs ->
+                prefs[achievementNotificationsKey] = enabled
+            }
+        }
+    }
     
     private suspend fun loadAchievements() {
         Log.d("AchievementManager", "📂 Loading achievements from local storage...")

@@ -4,6 +4,7 @@ import android.os.Parcelable
 import com.google.gson.JsonArray
 import com.google.gson.JsonElement
 import com.google.gson.JsonObject
+import com.google.gson.annotations.SerializedName
 import kotlinx.parcelize.Parcelize
 
 // MARK: - Authentication Models
@@ -345,15 +346,39 @@ data class DocumentsPayload(
     val documents: List<LogosDoc>
 ) : Parcelable
 
+/**
+ * Documento da API Logos (programmi/dispense).
+ * L'API usa allegatoOid e corso; oid/titolo sono fallback per formati alternativi.
+ */
 @Parcelize
 data class LogosDoc(
-    val oid: String,
-    val titolo: String,
+    /** ID per GetDocument (API: allegatoOid) */
+    @SerializedName("allegatoOid") val allegatoOid: String? = null,
+    /** Nome corso (API: corso) */
+    val corso: String? = null,
+    val ordine: Int? = null,
+    @SerializedName("pianoStudiOid") val pianoStudiOid: String? = null,
+    /** Fallback ID (alcune API usano oid) */
+    val oid: String? = null,
+    /** Fallback titolo (alcune API usano titolo) */
+    val titolo: String? = null,
     val tipo: String? = null,
     val descrizione: String? = null,
     val url: String? = null,
     val dataCreazione: String? = null
-) : Parcelable
+) : Parcelable {
+    /** ID per scaricare/aprire il documento (priorità allegatoOid) */
+    fun effectiveOid(): String? = allegatoOid?.takeIf { it.isNotBlank() } ?: oid?.takeIf { it.isNotBlank() }
+
+    /** Titolo da mostrare (priorità corso, poi titolo, descrizione, tipo) */
+    fun effectiveTitle(): String = when {
+        !corso.isNullOrBlank() -> corso
+        !titolo.isNullOrBlank() -> titolo
+        !descrizione.isNullOrBlank() -> descrizione
+        !tipo.isNullOrBlank() -> tipo
+        else -> "Documento"
+    }
+}
 
 // MARK: - Thesis Models
 
