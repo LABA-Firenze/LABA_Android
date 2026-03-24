@@ -156,11 +156,14 @@ fun TutorialScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(
-                Brush.linearGradient(
-                    colors = listOf(
-                        pages[currentPage].color.copy(alpha = 0.1f),
-                        pages[currentPage].color.copy(alpha = 0.05f)
+            .background(MaterialTheme.colorScheme.surface)
+            .then(
+                Modifier.background(
+                    Brush.verticalGradient(
+                        colors = listOf(
+                            pages[currentPage].color.copy(alpha = 0.12f),
+                            pages[currentPage].color.copy(alpha = 0.04f)
+                        )
                     )
                 )
             )
@@ -181,19 +184,19 @@ fun TutorialScreen(
                     ) {
                         Text(
                             text = "Salta",
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
             }
             
-            Spacer(modifier = Modifier.weight(1f))
+            Spacer(modifier = Modifier.height(8.dp))
             
             // Content
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .weight(3f)
+                    .weight(1f)
             ) {
                 LazyRow(
                     state = listState,
@@ -218,7 +221,7 @@ fun TutorialScreen(
                 }
             }
             
-            Spacer(modifier = Modifier.weight(1f))
+            Spacer(modifier = Modifier.height(8.dp))
             
             // Bottom controls
             Column(
@@ -250,7 +253,7 @@ fun TutorialScreen(
                                 .clip(CircleShape)
                                 .background(
                                     if (index == currentPage) pages[currentPage].color
-                                    else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
+                                    else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
                                 )
                         )
                     }
@@ -276,7 +279,7 @@ fun TutorialScreen(
                         ) {
                             Text(
                                 text = "Indietro",
-                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                     } else {
@@ -334,7 +337,7 @@ fun TutorialPageView(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        Spacer(modifier = Modifier.weight(1f))
+        Spacer(modifier = Modifier.weight(0.5f))
         
         Box(
             modifier = Modifier
@@ -352,6 +355,7 @@ fun TutorialPageView(
             text = page.title,
             fontSize = 28.sp,
             fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onSurface,
             textAlign = TextAlign.Center,
             modifier = Modifier.padding(bottom = 8.dp)
         )
@@ -370,7 +374,7 @@ fun TutorialPageView(
         Text(
             text = page.content,
             fontSize = 16.sp,
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
             lineHeight = 24.sp,
             modifier = Modifier.padding(bottom = if (page.valueLine != null) 8.dp else 16.dp)
@@ -380,7 +384,7 @@ fun TutorialPageView(
             Text(
                 text = value,
                 fontSize = 15.sp,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.9f),
                 textAlign = TextAlign.Center,
                 modifier = Modifier.padding(bottom = 16.dp)
             )
@@ -408,13 +412,13 @@ fun TutorialPageView(
                         text = "Funzionalità bonus",
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Medium,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
         }
         
-        Spacer(modifier = Modifier.weight(1f))
+        Spacer(modifier = Modifier.weight(0.5f))
     }
 }
 
