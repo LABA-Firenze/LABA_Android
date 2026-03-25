@@ -15,7 +15,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -217,7 +216,11 @@ fun ThesisScreen(
                 }
             }
 
-            // Checklist Section
+            item {
+                PresentationGradeExplainerCard(canGraduate = uiState.canGraduate)
+            }
+
+            // Checklist Section (sempre espansa; accordion solo su PWA)
             item {
                 ChecklistSection(minPages = uiState.minPages)
             }
@@ -325,10 +328,57 @@ private fun KpiCard(
 }
 
 @Composable
+private fun PresentationGradeExplainerCard(canGraduate: Boolean) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainer
+        ),
+        shape = RoundedCornerShape(16.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text(
+                text = "Voto d'ingresso: La tua stima in tempo reale",
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
+            )
+            Text(
+                text = if (canGraduate) {
+                    "Il Voto di presentazione è un calcolo automatico basato sulla media aritmetica dei tuoi esami verbalizzati. Il voto finale è convertito su una scala di 110."
+                } else {
+                    "Il voto di presentazione è disponibile quando almeno l'80% degli esami è stato verbalizzato. A quel punto vedrai la stima in tempo reale, calcolata sulla media aritmetica e convertita su 110."
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
+            )
+            Text(
+                text = "Come lo verifichi e lo ricalcoli?",
+                style = MaterialTheme.typography.bodySmall,
+                fontWeight = FontWeight.SemiBold,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
+            )
+            Text(
+                text = "• Dalla Home: tocca la sezione \"Voto d'ingresso\".\n• Dalla sezione Esami: accedi alla lista dei tuoi voti.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Start,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+    }
+}
+
+@Composable
 private fun ChecklistSection(minPages: Int) {
-    var expanded by remember { mutableStateOf(false) }
-    val checklistDisclaimer =
-        "Si prega di consultare il regolamento tesi e i documenti ufficiali nella sezione \"Moduli, pagamenti e modelli\" qui sotto, oltre alle indicazioni del relatore e della segreteria. La checklist è un promemoria operativo e non sostituisce il regolamento accademico."
     val checklistItems = listOf(
         Icons.Default.Person to "Scegli argomento e relatore",
         Icons.Default.Schedule to "Concorda revisioni periodiche con il relatore",
@@ -346,62 +396,31 @@ private fun ChecklistSection(minPages: Int) {
         ),
         shape = RoundedCornerShape(16.dp)
     ) {
-        Column {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { expanded = !expanded }
-                    .padding(16.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.Top
-            ) {
-                Column(
-                    modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text(
+                text = "Checklist rapida",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
+            )
+            checklistItems.forEach { (icon, text) ->
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    Text(
-                        text = "Checklist rapida",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        modifier = Modifier.size(20.dp),
+                        tint = MaterialTheme.colorScheme.primary
                     )
                     Text(
-                        text = checklistDisclaimer,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        lineHeight = MaterialTheme.typography.bodySmall.lineHeight * 1.25
+                        text = text,
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.weight(1f)
                     )
-                }
-                Icon(
-                    imageVector = Icons.Default.KeyboardArrowDown,
-                    contentDescription = if (expanded) "Chiudi checklist" else "Apri checklist",
-                    modifier = Modifier.rotate(if (expanded) 180f else 0f),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-            if (expanded) {
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                Column(
-                    modifier = Modifier.padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    checklistItems.forEach { (icon, text) ->
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            Icon(
-                                imageVector = icon,
-                                contentDescription = null,
-                                modifier = Modifier.size(20.dp),
-                                tint = MaterialTheme.colorScheme.primary
-                            )
-                            Text(
-                                text = text,
-                                style = MaterialTheme.typography.bodyMedium,
-                                modifier = Modifier.weight(1f)
-                            )
-                        }
-                    }
                 }
             }
         }

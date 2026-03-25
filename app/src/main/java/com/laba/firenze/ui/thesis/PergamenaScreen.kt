@@ -2,6 +2,7 @@ package com.laba.firenze.ui.thesis
 
 import android.content.Intent
 import android.net.Uri
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -108,9 +109,9 @@ fun PergamenaScreen(
                 modifier = Modifier
                     .weight(1f)
                     .verticalScroll(scrollState)
-                    .padding(horizontal = 16.dp, vertical = 16.dp)
+                    .padding(horizontal = 16.dp, vertical = 20.dp)
                     .padding(bottom = 120.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+                verticalArrangement = Arrangement.spacedBy(20.dp)
             ) {
                 when (selectedPane) {
                     PergamenaPane.Overview -> OverviewPane()
@@ -179,15 +180,9 @@ private fun OverviewPane() {
         }
     }
 
-    BulletCard(
-        title = "In breve",
-        lines = listOf(
-            Icons.Default.School to "Dopo aver superato la tesi, avvia la richiesta della pergamena",
-            Icons.Default.Euro to "Paga il bollettino postale (c/c 1016) — è il pagamento per la richiesta, non per il ritiro",
-            Icons.Default.Upload to "Consegna in Segreteria ricevuta e modulo di richiesta (senza marca da bollo in questa fase)",
-            Icons.Default.Schedule to "Per ritirare: contatta la Segreteria e fissa appuntamento; porta la marca da bollo da € 16 il giorno del ritiro"
-        )
-    )
+    OverviewAppointmentBanner()
+
+    InBreveOverviewCard()
 
     TextBlockCard(
         title = "Certificato Sostitutivo",
@@ -399,10 +394,51 @@ private fun DelegaCard() {
 }
 
 @Composable
-private fun BulletCard(
-    title: String,
-    lines: List<Pair<ImageVector, String>>
-) {
+private fun OverviewAppointmentBanner() {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
+        shape = RoundedCornerShape(16.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.35f))
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text(
+                text = "Appuntamento obbligatorio",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.error
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Strettamente necessario",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.error
+                )
+                Text(
+                    text = "per il ritiro della pergamena",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.error.copy(alpha = 0.9f)
+                )
+            }
+            Text(
+                text = "Il ritiro avviene solo su appuntamento concordato presso la sede di Piazza di Badia a Ripoli 1/A.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+@Composable
+private fun InBreveOverviewCard() {
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
@@ -410,18 +446,58 @@ private fun BulletCard(
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-            lines.forEach { (icon, text) ->
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    Icon(icon, null, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary)
-                    Text(text, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-            }
+            Text("In breve", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            InBreveStepRow(
+                Icons.Default.School,
+                "Avvia la richiesta",
+                "Dopo aver superato la tesi, avvia la richiesta della pergamena."
+            )
+            InBreveStepRow(
+                Icons.Default.Euro,
+                "Bollettino postale",
+                "Paga il bollettino (c/c 1016): è il pagamento per avviare la richiesta, non per il ritiro."
+            )
+            InBreveStepRow(
+                Icons.Default.Upload,
+                "Consegna in Segreteria",
+                "Porta ricevuta del bollettino e modulo di richiesta. La marca da bollo non serve in questa fase."
+            )
+            InBreveStepRow(
+                Icons.Default.Schedule,
+                "Ritiro su appuntamento",
+                "Contatta la Segreteria per fissare giorno e ora; il giorno del ritiro presenta la marca da bollo da € 16."
+            )
+        }
+    }
+}
+
+@Composable
+private fun InBreveStepRow(icon: ImageVector, title: String, detail: String) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        verticalAlignment = Alignment.Top
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            modifier = Modifier.size(22.dp),
+            tint = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Text(
+                text = detail,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }
