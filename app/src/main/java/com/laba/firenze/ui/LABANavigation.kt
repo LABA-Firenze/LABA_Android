@@ -35,6 +35,7 @@ import com.laba.firenze.ui.exams.BookedExamsScreen
 import com.laba.firenze.ui.home.HomeScreen
 import com.laba.firenze.ui.perte.*
 import com.laba.firenze.ui.profile.ProfileScreen
+import com.laba.firenze.ui.profile.OpenSourceLicensesScreen
 import com.laba.firenze.ui.thesis.ThesisScreen
 import com.laba.firenze.ui.thesis.PergamenaScreen
 import com.laba.firenze.ui.regolamenti.RegolamentiScreen
@@ -460,6 +461,9 @@ fun LABANavigation(
             }
             composable("debug") {
                 com.laba.firenze.ui.profile.DebugScreen(navController)
+            }
+            composable("open_source_licenses") {
+                OpenSourceLicensesScreen(navController)
             }
             
             // Anagrafica

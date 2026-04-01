@@ -657,6 +657,13 @@ fun ProfileScreen(
                                 android.widget.Toast.makeText(context, "Errore apertura privacy", android.widget.Toast.LENGTH_SHORT).show()
                             }
                         }
+                    ),
+                    ProfileMenuActionItem(
+                        title = "Licenze Open Source",
+                        icon = Icons.Default.Description,
+                        iconColor = MaterialTheme.colorScheme.primary,
+                        textColor = MaterialTheme.colorScheme.onSurface,
+                        onClick = { navController.navigate("open_source_licenses") }
                     )
                 )
             )
@@ -1222,13 +1229,18 @@ private fun ProfileMenuItem(item: ProfileMenuItem) {
                 shape = RoundedCornerShape(12.dp)
             ) {
                 ListItem(
-                    headlineContent = { Text(item.title) },
+                    headlineContent = {
+                        Text(
+                            text = item.title,
+                            color = item.textColor ?: MaterialTheme.colorScheme.onSurface
+                        )
+                    },
                     supportingContent = item.subtitle?.let { { Text(it) } },
                     leadingContent = {
                         Icon(
                             imageVector = item.icon,
                             contentDescription = item.title,
-                            tint = MaterialTheme.colorScheme.primary
+                            tint = item.iconColor ?: MaterialTheme.colorScheme.primary
                         )
                     },
                     trailingContent = {
@@ -1359,7 +1371,9 @@ data class ProfileMenuActionItem(
     val title: String,
     val icon: ImageVector,
     val onClick: () -> Unit,
-    val subtitle: String? = null
+    val subtitle: String? = null,
+    val iconColor: Color? = null,
+    val textColor: Color? = null
 ) : ProfileMenuItem()
 
 data class ProfileToggleItem(
