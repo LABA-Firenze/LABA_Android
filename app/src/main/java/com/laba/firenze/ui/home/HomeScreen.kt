@@ -38,9 +38,12 @@ import androidx.compose.material.pullrefresh.PullRefreshIndicator
 import androidx.compose.material.pullrefresh.pullRefresh
 import androidx.compose.material.pullrefresh.rememberPullRefreshState
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.border
+import androidx.compose.ui.layout.ContentScale
+import coil.compose.SubcomposeAsyncImage
 import androidx.core.view.HapticFeedbackConstantsCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -97,6 +100,7 @@ fun HomeScreen(
     val pullRefreshState = rememberPullRefreshState(isRefreshing, onRefresh)
     
     val sectionOrder by viewModel.sectionOrder.collectAsStateWithLifecycle()
+    val profilePhotoURL by viewModel.profilePhotoURL.collectAsStateWithLifecycle()
     val displaySections = remember(sectionOrder) { normalizeHomeSectionOrder(sectionOrder) }
     val profile = viewModel.getUserProfile()
     val exams = uiState.bookedExams
@@ -121,6 +125,7 @@ fun HomeScreen(
                     val heroInfo = viewModel.getHeroInfo()
                     UnifiedHeroAndKpiSection(
                         heroInfo = heroInfo,
+                        profilePhotoURL = profilePhotoURL,
                         statusPills = uiState.statusPills,
                         isGraduated = uiState.isGraduated,
                         heroGraduatePhrase = viewModel.getHeroPhraseForGraduate(),
@@ -138,6 +143,7 @@ fun HomeScreen(
                     val heroInfo = viewModel.getHeroInfo()
                     HeroSection(
                         heroInfo = heroInfo,
+                        profilePhotoURL = profilePhotoURL,
                         statusPills = uiState.statusPills,
                         isGraduated = uiState.isGraduated,
                         heroGraduatePhrase = viewModel.getHeroPhraseForGraduate(),
@@ -246,11 +252,86 @@ private fun normalizeHomeSectionOrder(order: List<String>): List<String> {
 /** Testo KPI laureato: come iOS (`HomeView`); italiano fisso come il resto della Home (non `stringResource` / locale sistema). */
 private const val HOME_GRADUATED_KPI_TEXT = "Hai terminato gli studi 🔥"
 
+/** Avatar hero 56dp come iOS `unifiedHeroAvatar` (Coil + cerchio gradiente). */
+@Composable
+private fun HeroProfileAvatar(
+    profilePhotoURL: String?,
+    modifier: Modifier = Modifier,
+    size: Dp = 56.dp,
+    onLightBackground: Boolean = true
+) {
+    val primary = MaterialTheme.colorScheme.primary
+    val placeholderTint = if (onLightBackground) primary else Color.White
+    val iconSize = size * 0.45f
+    Box(
+        modifier = modifier.size(size),
+        contentAlignment = Alignment.Center
+    ) {
+        Box(
+            modifier = Modifier
+                .matchParentSize()
+                .clip(CircleShape)
+                .background(
+                    if (onLightBackground) {
+                        Brush.linearGradient(
+                            colors = listOf(
+                                primary.copy(alpha = 0.32f),
+                                primary.copy(alpha = 0.12f)
+                            )
+                        )
+                    } else {
+                        Brush.linearGradient(
+                            colors = listOf(
+                                Color.White.copy(alpha = 0.22f),
+                                Color.White.copy(alpha = 0.08f)
+                            )
+                        )
+                    }
+                )
+        )
+        val url = profilePhotoURL?.takeIf { it.isNotBlank() }
+        if (url != null) {
+            SubcomposeAsyncImage(
+                model = url,
+                contentDescription = null,
+                modifier = Modifier
+                    .matchParentSize()
+                    .clip(CircleShape),
+                contentScale = ContentScale.Crop,
+                loading = {
+                    Icon(
+                        imageVector = Icons.Default.Person,
+                        contentDescription = null,
+                        modifier = Modifier.size(iconSize),
+                        tint = placeholderTint
+                    )
+                },
+                error = {
+                    Icon(
+                        imageVector = Icons.Default.Person,
+                        contentDescription = null,
+                        modifier = Modifier.size(iconSize),
+                        tint = placeholderTint
+                    )
+                }
+            )
+        } else {
+            Icon(
+                imageVector = Icons.Default.Person,
+                contentDescription = null,
+                modifier = Modifier.size(iconSize),
+                tint = placeholderTint
+            )
+        }
+    }
+}
+
 // MARK: - Hero + KPI unificato (iOS: unifiedHeroAndKpiSection)
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun UnifiedHeroAndKpiSection(
     heroInfo: HeroInfo,
+    profilePhotoURL: String?,
     statusPills: List<String>,
     isGraduated: Boolean,
     heroGraduatePhrase: String,
@@ -306,55 +387,63 @@ private fun UnifiedHeroAndKpiSection(
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
-            // Alto chiaro: saluto + pill (come iOS unifiedHeroIntroLightTop)
-            Column(
+            // Alto chiaro: avatar + saluto + pill (come iOS unifiedHeroIntroLightTop)
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 18.dp, vertical = 22.dp)
+                    .padding(horizontal = 18.dp, vertical = 22.dp),
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                verticalAlignment = Alignment.Top
             ) {
-                Text(
-                    text = "Ciao, ${heroInfo.displayName}! 👋",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                HeroProfileAvatar(
+                    profilePhotoURL = profilePhotoURL,
+                    onLightBackground = true
                 )
-                Spacer(modifier = Modifier.height(8.dp))
-                StatusPillsRow(
-                    heroInfo = heroInfo,
-                    pills = statusPills,
-                    isGraduated = isGraduated,
-                    heroGraduatePhrase = heroGraduatePhrase,
-                    lightBackground = true
-                )
-                heroNotificationPreview?.let { msg ->
-                    Spacer(modifier = Modifier.height(10.dp))
-                    Surface(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable(onClick = onNavigateToInbox),
-                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Ciao, ${heroInfo.displayName}! 👋",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    StatusPillsRow(
+                        heroInfo = heroInfo,
+                        pills = statusPills,
+                        isGraduated = isGraduated,
+                        heroGraduatePhrase = heroGraduatePhrase,
+                        lightBackground = true
+                    )
+                    heroNotificationPreview?.let { msg ->
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Surface(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable(onClick = onNavigateToInbox),
+                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+                            shape = RoundedCornerShape(12.dp)
                         ) {
-                            Icon(
-                                imageVector = Icons.Default.Notifications,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(18.dp)
-                            )
-                            Text(
-                                text = msg,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurface,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
+                            Row(
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Notifications,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Text(
+                                    text = msg,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
                         }
                     }
                 }
@@ -507,6 +596,7 @@ private fun KpiGradientColumn(
 @Composable
 private fun HeroSection(
     heroInfo: HeroInfo,
+    profilePhotoURL: String?,
     statusPills: List<String>,
     isGraduated: Boolean,
     heroGraduatePhrase: String = "ma perché usi ancora l'app?",
@@ -567,55 +657,64 @@ private fun HeroSection(
             }
         }
         
-        Column(
+        Row(
             modifier = Modifier
                 .align(Alignment.CenterStart)
                 .padding(32.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
+            verticalAlignment = Alignment.Top
         ) {
-            Text(
-                text = "Ciao, ${heroInfo.displayName}! 👋",
-                style = MaterialTheme.typography.headlineLarge,
-                fontWeight = FontWeight.Bold,
-                color = Color.White,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
+            HeroProfileAvatar(
+                profilePhotoURL = profilePhotoURL,
+                onLightBackground = false
             )
-            
-            StatusPillsRow(
-                heroInfo = heroInfo,
-                pills = statusPills,
-                isGraduated = isGraduated,
-                heroGraduatePhrase = heroGraduatePhrase
-            )
-            
-            // Messaggio notifica non letta (reformatMessaggioHome - identico a iOS 2.8.2)
-            heroNotificationPreview?.let { msg ->
-                Surface(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable(onClick = onNavigateToInbox),
-                    color = Color.White.copy(alpha = 0.2f),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Text(
+                    text = "Ciao, ${heroInfo.displayName}! 👋",
+                    style = MaterialTheme.typography.headlineLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+
+                StatusPillsRow(
+                    heroInfo = heroInfo,
+                    pills = statusPills,
+                    isGraduated = isGraduated,
+                    heroGraduatePhrase = heroGraduatePhrase
+                )
+
+                heroNotificationPreview?.let { msg ->
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable(onClick = onNavigateToInbox),
+                        color = Color.White.copy(alpha = 0.2f),
+                        shape = RoundedCornerShape(12.dp)
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.Notifications,
-                            contentDescription = null,
-                            tint = Color.White,
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Text(
-                            text = msg,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = Color.White.copy(alpha = 0.95f),
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
+                        Row(
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Notifications,
+                                contentDescription = null,
+                                tint = Color.White,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Text(
+                                text = msg,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = Color.White.copy(alpha = 0.95f),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
                     }
                 }
             }

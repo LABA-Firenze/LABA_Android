@@ -118,6 +118,9 @@ class HomeViewModel @Inject constructor(
     
     private val _sectionOrder = MutableStateFlow(loadSectionOrder())
     val sectionOrder: StateFlow<List<String>> = _sectionOrder.asStateFlow()
+
+    /** Foto profilo (stesso flusso del tab Profilo / iOS `profilePhotoURL`). */
+    val profilePhotoURL: StateFlow<String?> = sessionRepository.tokenManager.profilePhotoURL
     
     private fun loadSectionOrder(): List<String> {
         val json = prefs.getString("home.sectionOrder", null) ?: return defaultSectionOrder
@@ -144,6 +147,9 @@ class HomeViewModel @Inject constructor(
         lessonCalendarRepository.loadCacheIfAvailable()
         loadData()
         hasLoadedData = true
+        viewModelScope.launch {
+            sessionRepository.loadProfilePhotoFromSupabase()
+        }
     }
     
     /**
@@ -151,6 +157,7 @@ class HomeViewModel @Inject constructor(
      */
     fun performRefresh() {
         viewModelScope.launch {
+            sessionRepository.loadProfilePhotoFromSupabase()
             sessionRepository.loadAll()
             lessonCalendarRepository.syncLessons(
                 sessionRepository.getUserProfileFlow().value?.pianoStudi,
