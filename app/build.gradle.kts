@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -9,6 +11,20 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
+/** Credenziali firma release Play (upload key). Non committare: vedi `keystore.properties.example`. */
+val keystorePropertiesFile = rootProject.file("keystore.properties")
+val keystoreProperties = Properties().apply {
+    if (keystorePropertiesFile.exists()) {
+        keystorePropertiesFile.inputStream().use { load(it) }
+    }
+}
+
+/** Chiavi locali (OAuth, ecc.): `local.properties` non è versionato. */
+val localProperties = Properties().apply {
+    val lp = rootProject.file("local.properties")
+    if (lp.exists()) lp.inputStream().use { load(it) }
+}
+
 android {
     namespace = "com.laba.firenze"
     compileSdk = 35
@@ -17,26 +33,55 @@ android {
         applicationId = "com.laba.firenze"
         minSdk = 24
         targetSdk = 35
-        versionCode = 2
-        versionName = "2.0.0"
+        versionCode = 3
+        versionName = "2.0.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
             useSupportLibrary = true
         }
-        // ImgBB API key: add IMGBB_API_KEY to local.properties or gradle.properties
-        val imgbbKey = project.findProperty("IMGBB_API_KEY") as? String ?: ""
+        val imgbbKey = localProperties.getProperty("IMGBB_API_KEY")?.trim()
+            ?: (project.findProperty("IMGBB_API_KEY") as? String ?: "")
         buildConfigField("String", "IMGBB_API_KEY", "\"$imgbbKey\"")
-        // SuperSaas API key: add SUPERSAAS_API_KEY to local.properties or gradle.properties
-        val superSaasKey = project.findProperty("SUPERSAAS_API_KEY") as? String ?: "tTu_7aaIHDWCQGuGz_4cQA"
+        val superSaasKey = localProperties.getProperty("SUPERSAAS_API_KEY")?.trim()
+            ?: (project.findProperty("SUPERSAAS_API_KEY") as? String ?: "")
         buildConfigField("String", "SUPERSAAS_API_KEY", "\"$superSaasKey\"")
+        val oauthClientId = localProperties.getProperty("OAUTH_CLIENT_ID")?.trim().orEmpty()
+        val oauthClientSecret = localProperties.getProperty("OAUTH_CLIENT_SECRET")?.trim().orEmpty()
+        buildConfigField("String", "OAUTH_CLIENT_ID", "\"$oauthClientId\"")
+        buildConfigField("String", "OAUTH_CLIENT_SECRET", "\"$oauthClientSecret\"")
+    }
+
+    signingConfigs {
+        val storeRel = keystoreProperties.getProperty("storeFile")?.trim()
+        if (!storeRel.isNullOrEmpty()) {
+            val storeFile = rootProject.file(storeRel)
+            if (storeFile.isFile) {
+                create("release") {
+                    this.storeFile = storeFile
+                    storePassword = keystoreProperties.getProperty("storePassword") ?: ""
+                    keyAlias = keystoreProperties.getProperty("keyAlias") ?: ""
+                    keyPassword = keystoreProperties.getProperty("keyPassword") ?: ""
+                }
+            } else {
+                logger.lifecycle(
+                    "[signing] keystore.properties: file non trovato: ${storeFile.absolutePath}"
+                )
+            }
+        }
     }
 
     buildTypes {
         release {
             isMinifyEnabled = false
             isDebuggable = false
-            signingConfig = signingConfigs.getByName("debug") // Usa la firma di debug
+            signingConfig = signingConfigs.findByName("release")
+                ?: signingConfigs.getByName("debug").also {
+                    logger.lifecycle(
+                        "[signing] Release usa debug keystore. Per Play: aggiungi keystore.properties " +
+                            "con upload key (SHA1 dalla Console) e rigenera bundleRelease."
+                    )
+                }
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -201,9 +246,24 @@ fun cleanDuplicateFiles(dir: java.io.File) {
     }
 }
 
+/** Risorse Android: nomi file senza spazi. iCloud crea es. "bianco 2.png" → invalida e fa fallire parseDebugLocalResources. */
+fun cleanInvalidResourceFiles(dir: java.io.File) {
+    if (!dir.exists()) return
+    dir.walkTopDown().forEach { f ->
+        if (f.isFile && f.name.contains(' ')) {
+            f.delete()
+            println("Rimosso file risorsa con nome non valido: ${f.relativeTo(dir)}")
+        }
+    }
+}
+
 tasks.register("cleanDuplicates") {
     doLast {
         cleanDuplicateFiles(file("build/intermediates/classes/debug/transformDebugClassesWithAsm/dirs"))
+        // Sorgenti: duplicati iCloud nella cartella res
+        cleanInvalidResourceFiles(file("src/main/res"))
+        // Build incrementale: resti di pacchetti precedenti con nomi illegali
+        cleanInvalidResourceFiles(file("build/intermediates/packaged_res"))
     }
 }
 

@@ -68,6 +68,7 @@ captures/
 *.jks
 *.keystore
 LABA Firenze.jks
+keystore.properties
 
 # External native build folder generated in Android Studio 2.2 and later
 .externalNativeBuild

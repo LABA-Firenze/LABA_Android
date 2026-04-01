@@ -22,8 +22,8 @@ interface AuthApi {
     suspend fun login(
         @Header("Authorization") basicAuth: String,
         @Field("grant_type") grantType: String = "password",
-        @Field("client_id") clientId: String = "98C96373243D",
-        @Field("client_secret") clientSecret: String = "B1355BBB-EA35-4724-AFAA-8ABAAFEDCFB6",
+        @Field("client_id") clientId: String,
+        @Field("client_secret") clientSecret: String,
         @Field("scope") scope: String = "LogosUni.Laba.Api offline_access",
         @Field("username") username: String,
         @Field("password") password: String
@@ -37,8 +37,8 @@ interface AuthApi {
     suspend fun refresh(
         @Header("Authorization") basicAuth: String,
         @Field("grant_type") grantType: String = "refresh_token",
-        @Field("client_id") clientId: String = "98C96373243D",
-        @Field("client_secret") clientSecret: String = "B1355BBB-EA35-4724-AFAA-8ABAAFEDCFB6",
+        @Field("client_id") clientId: String,
+        @Field("client_secret") clientSecret: String,
         @Field("refresh_token") refreshToken: String
     ): Response<TokenResponse>
 

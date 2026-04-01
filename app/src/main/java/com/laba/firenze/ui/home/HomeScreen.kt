@@ -40,6 +40,7 @@ import androidx.compose.material.pullrefresh.rememberPullRefreshState
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.border
 import androidx.core.view.HapticFeedbackConstantsCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -96,6 +97,7 @@ fun HomeScreen(
     val pullRefreshState = rememberPullRefreshState(isRefreshing, onRefresh)
     
     val sectionOrder by viewModel.sectionOrder.collectAsStateWithLifecycle()
+    val displaySections = remember(sectionOrder) { normalizeHomeSectionOrder(sectionOrder) }
     val profile = viewModel.getUserProfile()
     val exams = uiState.bookedExams
     val allExams = viewModel.getAllExams()
@@ -112,8 +114,26 @@ fun HomeScreen(
         ),
         verticalArrangement = Arrangement.spacedBy(24.dp)
     ) {
-        sectionOrder.forEach { sectionId ->
+        displaySections.forEach { sectionId ->
             when (sectionId) {
+                "hero_kpi" -> item {
+                    val dataAppeared = !uiState.isLoading
+                    val heroInfo = viewModel.getHeroInfo()
+                    UnifiedHeroAndKpiSection(
+                        heroInfo = heroInfo,
+                        statusPills = uiState.statusPills,
+                        isGraduated = uiState.isGraduated,
+                        heroGraduatePhrase = viewModel.getHeroPhraseForGraduate(),
+                        selectedPattern = viewModel.getHeroPattern(),
+                        heroNotificationPreview = uiState.heroNotificationPreview,
+                        onNavigateToInbox = { navController.navigate("inbox") },
+                        passedExams = uiState.passedExamsCount,
+                        missingExams = uiState.missingExamsCount,
+                        cfaEarned = uiState.cfaEarned,
+                        totalExams = uiState.totalExamsCount,
+                        dataAppeared = dataAppeared
+                    )
+                }
                 "hero" -> item {
                     val heroInfo = viewModel.getHeroInfo()
                     HeroSection(
@@ -133,6 +153,7 @@ fun HomeScreen(
                         missingExams = uiState.missingExamsCount,
                         cfaEarned = uiState.cfaEarned,
                         totalExams = uiState.totalExamsCount,
+                        isGraduated = uiState.isGraduated,
                         dataAppeared = dataAppeared
                     )
                 }
@@ -206,7 +227,283 @@ fun HomeScreen(
     }
 }
 
-// MARK: - Hero Section
+/** Unisce "hero" + "kpi" adiacenti come su iOS (`unifiedHeroAndKpiSection`). */
+private fun normalizeHomeSectionOrder(order: List<String>): List<String> {
+    val out = ArrayList<String>(order.size)
+    var i = 0
+    while (i < order.size) {
+        if (order[i] == "hero" && i + 1 < order.size && order[i + 1] == "kpi") {
+            out.add("hero_kpi")
+            i += 2
+        } else {
+            out.add(order[i])
+            i++
+        }
+    }
+    return out
+}
+
+/** Testo KPI laureato: come iOS (`HomeView`); italiano fisso come il resto della Home (non `stringResource` / locale sistema). */
+private const val HOME_GRADUATED_KPI_TEXT = "Hai terminato gli studi 🔥"
+
+// MARK: - Hero + KPI unificato (iOS: unifiedHeroAndKpiSection)
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun UnifiedHeroAndKpiSection(
+    heroInfo: HeroInfo,
+    statusPills: List<String>,
+    isGraduated: Boolean,
+    heroGraduatePhrase: String,
+    selectedPattern: String,
+    heroNotificationPreview: String?,
+    onNavigateToInbox: () -> Unit,
+    passedExams: Int,
+    missingExams: Int,
+    cfaEarned: Int,
+    totalExams: Int,
+    dataAppeared: Boolean
+) {
+    val view = LocalView.current
+    val infiniteTransition = rememberInfiniteTransition(label = "unified_hero_kpi")
+    val animationPhase by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(60000, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "unified_hero_kpi_phase"
+    )
+    val scale by animateFloatAsState(
+        targetValue = if (dataAppeared) 1f else 0.98f,
+        animationSpec = spring(dampingRatio = 0.85f, stiffness = 400f),
+        label = "unified_hero_scale"
+    )
+    val alpha by animateFloatAsState(
+        targetValue = if (dataAppeared) 1f else 0f,
+        animationSpec = spring(dampingRatio = 0.85f, stiffness = 400f),
+        label = "unified_hero_alpha"
+    )
+    val shape = RoundedCornerShape(16.dp)
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .scale(scale)
+            .graphicsLayer { this.alpha = alpha }
+            .shadow(
+                elevation = 8.dp,
+                shape = shape,
+                ambientColor = Color.Black.copy(alpha = 0.08f),
+                spotColor = Color.Black.copy(alpha = 0.12f)
+            )
+            .border(
+                width = 1.dp,
+                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.12f),
+                shape = shape
+            ),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+        shape = shape,
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
+        Column(modifier = Modifier.fillMaxWidth()) {
+            // Alto chiaro: saluto + pill (come iOS unifiedHeroIntroLightTop)
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 18.dp, vertical = 22.dp)
+            ) {
+                Text(
+                    text = "Ciao, ${heroInfo.displayName}! 👋",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                StatusPillsRow(
+                    heroInfo = heroInfo,
+                    pills = statusPills,
+                    isGraduated = isGraduated,
+                    heroGraduatePhrase = heroGraduatePhrase,
+                    lightBackground = true
+                )
+                heroNotificationPreview?.let { msg ->
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable(onClick = onNavigateToInbox),
+                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Notifications,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Text(
+                                text = msg,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+                }
+            }
+            HorizontalDivider(
+                thickness = 1.dp,
+                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.14f)
+            )
+            // Basso: gradiente + pattern KPI (come iOS unifiedHeroKpiAccentBottom).
+            // Senza altezza minima, `Canvas(fillMaxSize())` può misurarsi ~0 px → onde “schiacciate” in una linea.
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 140.dp)
+                    .clip(
+                        RoundedCornerShape(
+                            bottomStart = 16.dp,
+                            bottomEnd = 16.dp
+                        )
+                    )
+                    .background(
+                        Brush.linearGradient(
+                            colors = listOf(
+                                MaterialTheme.colorScheme.primary,
+                                MaterialTheme.colorScheme.primary.copy(alpha = 0.72f)
+                            )
+                        )
+                    )
+            ) {
+                Canvas(modifier = Modifier.matchParentSize()) {
+                    val time = animationPhase * 60f
+                    when (selectedPattern) {
+                        "wave" -> drawWavePatternHero(size, time)
+                        "dots" -> drawDotsPatternHero(size, time)
+                        "grid" -> drawGridPatternHero(size, time)
+                        "particles" -> drawParticlesPatternHero(size, time)
+                        "circles" -> drawCirclesPatternHero(size, time)
+                        "rays" -> drawRaysPatternHero(size, time)
+                        "ripple" -> drawRipplePatternHero(size, time)
+                        else -> drawWavePatternHero(size, time)
+                    }
+                }
+                if (isGraduated) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .matchParentSize()
+                            .padding(horizontal = 16.dp, vertical = 12.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = HOME_GRADUATED_KPI_TEXT,
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White,
+                            textAlign = TextAlign.Center,
+                            maxLines = 2,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                } else {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(20.dp),
+                        horizontalArrangement = Arrangement.spacedBy(20.dp)
+                    ) {
+                        KpiGradientColumn(
+                            title = "Esami\nsostenuti",
+                            value = passedExams.toString(),
+                            isComplete = false,
+                            modifier = Modifier
+                                .weight(1f)
+                                .clickable {
+                                    view.performHapticFeedback(HapticFeedbackConstantsCompat.LONG_PRESS)
+                                }
+                        )
+                        KpiGradientColumn(
+                            title = "Esami\nmancanti",
+                            value = missingExams.toString(),
+                            isComplete = missingExams == 0 && totalExams > 0,
+                            modifier = Modifier
+                                .weight(1f)
+                                .clickable {
+                                    view.performHapticFeedback(HapticFeedbackConstantsCompat.LONG_PRESS)
+                                }
+                        )
+                        KpiGradientColumn(
+                            title = "CFA \nacquisiti",
+                            value = cfaEarned.toString(),
+                            isComplete = false,
+                            modifier = Modifier
+                                .weight(1f)
+                                .clickable {
+                                    view.performHapticFeedback(HapticFeedbackConstantsCompat.LONG_PRESS)
+                                }
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun KpiGradientColumn(
+    title: String,
+    value: String,
+    isComplete: Boolean,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier.height(96.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        if (isComplete) {
+            Icon(
+                imageVector = Icons.Rounded.EmojiEvents,
+                contentDescription = null,
+                modifier = Modifier.size(28.dp),
+                tint = Color.White
+            )
+            Text(
+                text = "Hai sostenuto tutti gli esami!",
+                style = MaterialTheme.typography.labelSmall,
+                color = Color.White.copy(alpha = 0.95f),
+                textAlign = TextAlign.Center
+            )
+        } else {
+            Text(
+                text = value,
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.Bold,
+                color = Color.White,
+                textAlign = TextAlign.Center
+            )
+            Text(
+                text = title,
+                style = MaterialTheme.typography.bodyMedium,
+                color = Color.White.copy(alpha = 0.88f),
+                textAlign = TextAlign.Center,
+                maxLines = 2
+            )
+        }
+    }
+}
+
+// MARK: - Hero Section (standalone: vecchio hero full-bleed gradient)
 @Composable
 private fun HeroSection(
     heroInfo: HeroInfo,
@@ -331,24 +628,30 @@ private fun StatusPillsRow(
     heroInfo: HeroInfo,
     @Suppress("UNUSED_PARAMETER") pills: List<String>,
     isGraduated: Boolean,
-    heroGraduatePhrase: String = "ma perché usi ancora l'app?"
+    heroGraduatePhrase: String = "ma perché usi ancora l'app?",
+    lightBackground: Boolean = false
 ) {
+    val secondary = if (lightBackground) {
+        MaterialTheme.colorScheme.onSurfaceVariant
+    } else {
+        Color.White.copy(alpha = 0.95f)
+    }
     Row(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         if (isGraduated) {
             // Se laureato: pillola + frase ciclica (identico a iOS heroPhraseForGraduate)
-            Pill("Laureato")
+            Pill("Laureato", lightBackground = lightBackground)
             Text(
                 text = heroGraduatePhrase,
                 style = MaterialTheme.typography.bodyMedium,
-                color = Color.White.copy(alpha = 0.95f)
+                color = secondary
             )
         } else {
             // Se non laureato: mostra anno di corso e corso compatto
             heroInfo.studyYear?.let { year ->
-                Pill(getItalianOrdinalYear(year))
+                Pill(getItalianOrdinalYear(year), lightBackground = lightBackground)
             }
             
             // Corso compatto + A.A. (se disponibile)
@@ -361,7 +664,7 @@ private fun StatusPillsRow(
             Text(
                 text = courseDisplay,
                 style = MaterialTheme.typography.bodyMedium,
-                color = Color.White.copy(alpha = 0.95f)
+                color = secondary
             )
         }
     }
@@ -379,18 +682,25 @@ private fun getItalianOrdinalYear(year: Int): String {
 }
 
 @Composable
-private fun Pill(text: String) {
-    val lighterAccent = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f)
-    // val outlineAccent = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f) // Non utilizzata
-    
+private fun Pill(text: String, lightBackground: Boolean = false) {
+    val bg = if (lightBackground) {
+        MaterialTheme.colorScheme.primary.copy(alpha = 0.14f)
+    } else {
+        MaterialTheme.colorScheme.primary.copy(alpha = 0.8f)
+    }
+    val fg = if (lightBackground) {
+        MaterialTheme.colorScheme.primary
+    } else {
+        Color.White
+    }
     Text(
         text = text,
         modifier = Modifier
             .clip(RoundedCornerShape(14.dp))
-            .background(lighterAccent)
+            .background(bg)
             .padding(horizontal = 12.dp, vertical = 6.dp),
         style = MaterialTheme.typography.labelMedium,
-        color = Color.White,
+        color = fg,
         fontWeight = FontWeight.Medium
     )
 }
@@ -403,6 +713,7 @@ private fun KpiCardsSection(
     missingExams: Int,
     cfaEarned: Int,
     totalExams: Int,
+    isGraduated: Boolean,
     dataAppeared: Boolean = true
 ) {
     val view = LocalView.current
@@ -425,48 +736,78 @@ private fun KpiCardsSection(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
         shape = RoundedCornerShape(16.dp)
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(20.dp),
-            horizontalArrangement = Arrangement.spacedBy(20.dp)
-        ) {
-            // Esami sostenuti (haptic on tap)
-            KpiCard(
-                title = "Esami\nsostenuti",
-                value = passedExams.toString(),
-                emphasizeGlow = false,
+        if (isGraduated) {
+            // Allineato a iOS Home: striscia unica al posto delle 3 KPI (graduatedKpiUnifiedFullWidthStrip)
+            Box(
                 modifier = Modifier
-                    .weight(1f)
-                    .clickable {
-                        view.performHapticFeedback(HapticFeedbackConstantsCompat.LONG_PRESS)
-                    }
-            )
+                    .fillMaxWidth()
+                    .background(
+                        brush = Brush.linearGradient(
+                            colors = listOf(
+                                MaterialTheme.colorScheme.primary,
+                                MaterialTheme.colorScheme.primary.copy(alpha = 0.72f)
+                            )
+                        ),
+                        shape = RoundedCornerShape(16.dp)
+                    )
+                    .padding(horizontal = 16.dp, vertical = 12.dp)
+                    .defaultMinSize(minHeight = 61.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = HOME_GRADUATED_KPI_TEXT,
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White,
+                    textAlign = TextAlign.Center,
+                    maxLines = 2,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        } else {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(20.dp),
+                horizontalArrangement = Arrangement.spacedBy(20.dp)
+            ) {
+                // Esami sostenuti (haptic on tap)
+                KpiCard(
+                    title = "Esami\nsostenuti",
+                    value = passedExams.toString(),
+                    emphasizeGlow = false,
+                    modifier = Modifier
+                        .weight(1f)
+                        .clickable {
+                            view.performHapticFeedback(HapticFeedbackConstantsCompat.LONG_PRESS)
+                        }
+                )
 
-            // Esami mancanti (haptic on tap)
-            KpiCard(
-                title = "Esami\nmancanti",
-                value = missingExams.toString(),
-                emphasizeGlow = true,
-                isComplete = missingExams == 0 && totalExams > 0,
-                modifier = Modifier
-                    .weight(1f)
-                    .clickable {
-                        view.performHapticFeedback(HapticFeedbackConstantsCompat.LONG_PRESS)
-                    }
-            )
+                // Esami mancanti (haptic on tap)
+                KpiCard(
+                    title = "Esami\nmancanti",
+                    value = missingExams.toString(),
+                    emphasizeGlow = true,
+                    isComplete = missingExams == 0 && totalExams > 0,
+                    modifier = Modifier
+                        .weight(1f)
+                        .clickable {
+                            view.performHapticFeedback(HapticFeedbackConstantsCompat.LONG_PRESS)
+                        }
+                )
 
-            // CFA acquisiti (haptic on tap)
-            KpiCard(
-                title = "CFA \nacquisiti",
-                value = cfaEarned.toString(),
-                emphasizeGlow = false,
-                modifier = Modifier
-                    .weight(1f)
-                    .clickable {
-                        view.performHapticFeedback(HapticFeedbackConstantsCompat.LONG_PRESS)
-                    }
-            )
+                // CFA acquisiti (haptic on tap)
+                KpiCard(
+                    title = "CFA \nacquisiti",
+                    value = cfaEarned.toString(),
+                    emphasizeGlow = false,
+                    modifier = Modifier
+                        .weight(1f)
+                        .clickable {
+                            view.performHapticFeedback(HapticFeedbackConstantsCompat.LONG_PRESS)
+                        }
+                )
+            }
         }
     }
 }

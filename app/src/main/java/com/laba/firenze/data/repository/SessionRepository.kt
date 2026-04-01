@@ -11,6 +11,7 @@ import com.laba.firenze.data.local.KeychainHelper
 import com.laba.firenze.data.local.SessionTokenManager
 import com.laba.firenze.data.local.TokenStore
 import com.laba.firenze.data.TopicManager
+import com.laba.firenze.BuildConfig
 import com.laba.firenze.data.service.ProfilePhotoPreloadService
 import com.laba.firenze.domain.model.*
 import androidx.compose.material.icons.Icons
@@ -86,6 +87,8 @@ class SessionRepository @Inject constructor(
             val basicAuth = getBasicAuth()
             val response = authApi.login(
                 basicAuth = basicAuth,
+                clientId = BuildConfig.OAUTH_CLIENT_ID,
+                clientSecret = BuildConfig.OAUTH_CLIENT_SECRET,
                 username = normalizedUsername,
                 password = password
             )
@@ -147,7 +150,9 @@ class SessionRepository @Inject constructor(
      * Genera Basic Auth header per client_id:client_secret (identico a iOS)
      */
     private fun getBasicAuth(): String {
-        val credentials = "98C96373243D:B1355BBB-EA35-4724-AFAA-8ABAAFEDCFB6"
+        val id = BuildConfig.OAUTH_CLIENT_ID
+        val secret = BuildConfig.OAUTH_CLIENT_SECRET
+        val credentials = "$id:$secret"
         val encoded = android.util.Base64.encodeToString(
             credentials.toByteArray(),
             android.util.Base64.NO_WRAP
@@ -214,6 +219,8 @@ class SessionRepository @Inject constructor(
             
             val response = authApi.login(
                 basicAuth = getBasicAuth(),
+                clientId = BuildConfig.OAUTH_CLIENT_ID,
+                clientSecret = BuildConfig.OAUTH_CLIENT_SECRET,
                 username = username,
                 password = password
             )

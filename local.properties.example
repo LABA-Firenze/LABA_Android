@@ -1,0 +1,7 @@
+# Esempio: aggiungere queste righe al file local.properties nella root del progetto
+# (Android Studio crea local.properties con sdk.dir; non committare il file reale).
+#
+# OAUTH_CLIENT_ID=
+# OAUTH_CLIENT_SECRET=
+#
+# Opzionale: IMGBB_API_KEY=, SUPERSAAS_API_KEY=
